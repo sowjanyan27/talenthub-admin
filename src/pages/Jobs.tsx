@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Plus, MapPin, DollarSign, Users, Eye, Edit2, Trash2 } from 'lucide-react';
+import { Search, Plus, MapPin, DollarSign, Users, Eye, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import PostJobModal from '../components/PostJobModal';
