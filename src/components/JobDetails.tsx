@@ -3,7 +3,7 @@ import { ArrowLeft, Users, FileText, Calendar, TrendingUp, Plus, Eye, Mail, Phon
 import { supabase } from '../lib/supabase';
 import AddCandidateModal from './AddCandidateModal';
 import UploadResumeModal from './UploadResumeModal';
-import CandidateDetailsModal from './CandidateDetailsModal';
+// import CandidateDetailsModal from './CandidateDetailsModal';
 import { mockApplications, mockJob } from '../mock/mockData';
 import CandidatePage from './CandidatePage';
 
