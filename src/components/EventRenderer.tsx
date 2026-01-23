@@ -526,10 +526,10 @@
 
 import { CheckCircle, Clock, Mail, Phone, FileText } from 'lucide-react';
 
-interface CandidateQuestion {
-  question: string;
-  score?: number;
-}
+// interface CandidateQuestion {
+//   question: string;
+//   score?: number;
+// }
 
 // interface EventData {
 //   file?: string;
