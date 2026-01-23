@@ -4,8 +4,17 @@ import { supabase } from '../lib/supabase';
 import AddCandidateModal from './AddCandidateModal';
 import UploadResumeModal from './UploadResumeModal';
 // import CandidateDetailsModal from './CandidateDetailsModal';
-import { mockApplications, mockJob } from '../mock/mockData';
+import { mockApplications, mockJobs } from '../mock/mockData';
 import CandidatePage from './CandidatePage';
+import { exportCandidatesExcel } from '../utils/exportExcel';
+import {
+  CheckCircle,
+  Clock,
+  XCircle,
+  Circle
+} from 'lucide-react';
+import { mockTimeline } from '../mock/mockTimeline';
+
 
 interface Job {
   id: string;
@@ -41,27 +50,71 @@ interface JobDetailsProps {
   jobId: string;
   onBack: () => void;
 }
+export const TIMELINE_STEPS = [
+  { stage: 'profile_uploaded', label: 'Profile' },
+  { stage: 'matching_completed', label: 'JD Match' },
+  { stage: 'email_sent', label: 'Email' },
+  { stage: 'bot_call_completed', label: 'Bot Call' },
+  { stage: 'conference_scheduled', label: 'Interview' },
+];
+const getStageStatus = (timeline: any[], stage: string) => {
+  const event = timeline?.find(t => t.stage === stage);
+
+  if (!event) return 'not_started';
+
+  if (event.status === 'completed') return 'completed';
+
+  if (event.status === 'pending') return 'pending';
+
+  if (event.stage === 'rejected' || event.stage === 'bot_call_failed')
+    return 'failed';
+
+  return 'completed';
+};
+const StageIcon = ({ status }: { status: string }) => {
+  switch (status) {
+    case 'completed':
+      return <CheckCircle className="w-4 h-4 text-green-600" />;
+    case 'pending':
+      return <Clock className="w-4 h-4 text-orange-500" />;
+    case 'failed':
+      return <XCircle className="w-4 h-4 text-red-500" />;
+    default:
+      return <Circle className="w-4 h-4 text-gray-300" />;
+  }
+};
+
 
 export default function JobDetails({ jobId, onBack }: JobDetailsProps) {
   const [job, setJob] = useState<Job | null>(null);
   const [applications, setApplications] = useState<Application[]>([]);
+
   const [activeTab, setActiveTab] = useState<'candidates' | 'details' | 'screening'>('candidates');
   const [showAddModal, setShowAddModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState<any>(null);
   const [view, setView] = useState<'job' | 'candidate'>('job');
-// const [selectedApplication, setSelectedApplication] = useState<any>(null);
+  // const [selectedApplication, setSelectedApplication] = useState<any>(null);
 
 
   // useEffect(() => {
   //   loadJobDetails();
   // }, [jobId]);
-useEffect(() => {
-  setJob(mockJob);
-  setApplications(mockApplications);
-  setLoading(false);
-}, []);
+  // useEffect(() => {
+  //   setJob(mockJobs);
+  //   setApplications(mockApplications);
+  //   setLoading(false);
+  // }, []);
+  useEffect(() => {
+    const selectedJob = mockJobs.find(j => j.id === jobId) || null;
+    setJob(selectedJob);
+
+    const apps = mockApplications.filter(app => app.jobId === jobId);
+    setApplications(apps);
+
+    setLoading(false);
+  }, [jobId]);
 
   const loadJobDetails = async () => {
     try {
@@ -162,22 +215,29 @@ useEffect(() => {
         return acc;
       }, {});
   };
-if (view === 'candidate' && selectedApplication) {
-  return (
-    <CandidatePage
-      application={selectedApplication}
-      onBack={() => {
-        setView('job');
-        setSelectedApplication(null);
-      }}
-    />
-  );
-}
+  if (view === 'candidate' && selectedApplication) {
+    return (
+      <CandidatePage
+        application={selectedApplication}
+        onBack={() => {
+          setView('job');
+          setSelectedApplication(null);
+        }}
+      />
+    );
+  }
 
   return (
     <div className="flex-1 bg-gray-50 overflow-y-auto">
       <div className="max-w-7xl mx-auto p-8">
         <div className="mb-6">
+          <button
+            onClick={() => exportCandidatesExcel(applications)}
+            className="border px-4 py-2 rounded-lg text-sm"
+          >
+            Download Excel
+          </button>
+
           <button
             onClick={onBack}
             className="flex items-center text-gray-600 hover:text-gray-900 transition-colors mb-4"
@@ -376,7 +436,7 @@ if (view === 'candidate' && selectedApplication) {
             </div>
           </div>
 
-          {activeTab === 'candidates' && (
+          {/* {activeTab === 'candidates' && (
             <div className="p-6">
               <p className="text-sm text-gray-600 mb-6">
                 Manage candidates who have applied or been added to this position
@@ -425,6 +485,35 @@ if (view === 'candidate' && selectedApplication) {
                           />
                         </div>
                       </div>
+                     
+                      <div className="mt-4 border-l-2 border-gray-200 pl-4 space-y-4">
+                        {TIMELINE_STEPS.map((step, index) => {
+                          const status = getStageStatus(
+                            mockTimeline[application.id] || [],
+                            step.stage
+                          );
+
+                          return (
+                            <div key={step.stage} className="flex items-start gap-3 relative">
+                              <div className="absolute -left-[22px] top-0">
+                                <StageIcon status={status} />
+                              </div>
+
+                              <div>
+                                <p className="text-sm font-medium text-gray-800">
+                                  {step.label}
+                                </p>
+
+                                <p className="text-xs text-gray-500 capitalize">
+                                  {status.replace('_', ' ')}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+
 
                       <div className="space-y-2 mb-4">
                         <div className="flex items-center text-sm text-gray-600">
@@ -478,19 +567,14 @@ if (view === 'candidate' && selectedApplication) {
                           <option value="qualified">Qualified</option>
                           <option value="rejected">Rejected</option>
                         </select>
-                        {/* <button
-                          onClick={() => setSelectedApplication(application)}
+                        <button
+                          onClick={() => {
+                            setSelectedApplication(application);
+                            setView('candidate');
+                          }}
                         >
                           <Eye className="w-4 h-4" />
-                        </button> */}
-                        <button
-  onClick={() => {
-    setSelectedApplication(application);
-    setView('candidate');
-  }}
->
-  <Eye className="w-4 h-4" />
-</button>
+                        </button>
 
                       </div>
                     </div>
@@ -498,7 +582,205 @@ if (view === 'candidate' && selectedApplication) {
                 </div>
               )}
             </div>
-          )}
+          )} */}
+                      
+{activeTab === 'candidates' && (
+  <div className="p-6">
+    <p className="text-sm text-gray-600 mb-6">
+      Manage candidates who have applied or been added to this position
+    </p>
+
+    {applications.length === 0 ? (
+      <div className="text-center py-12">
+        <div className="text-gray-500">No candidates yet</div>
+      </div>
+    ) : (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {applications.map((application) => (
+          <div
+            key={application.id}
+            className="relative group border border-gray-200 rounded-xl p-6 
+                       bg-white hover:shadow-md transition-shadow"
+          >
+            {/* ================= HEADER ================= */}
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                  {application.candidate.full_name}
+                </h3>
+                <p className="text-sm text-gray-600">
+                  Applied{" "}
+                  {new Date(application.applied_at).toLocaleDateString()}
+                </p>
+              </div>
+
+              <span
+                className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                  application.status
+                )}`}
+              >
+                {application.status}
+              </span>
+            </div>
+
+            {/* ================= MATCH SCORE ================= */}
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm font-medium text-gray-700">
+                  Match Score
+                </span>
+                <span className="text-sm font-semibold text-gray-900">
+                  {application.match_score}%
+                </span>
+              </div>
+
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div
+                  className="bg-blue-600 h-2 rounded-full transition-all"
+                  style={{ width: `${application.match_score}%` }}
+                />
+              </div>
+            </div>
+
+            {/* ================= VERTICAL TIMELINE ================= */}
+            <div className="mt-4 border-l-2 border-gray-200 pl-4 space-y-2">
+              {TIMELINE_STEPS.map((step) => {
+                const status = getStageStatus(
+                  mockTimeline[application.id] || [],
+                  step.stage
+                );
+
+                return (
+                  <div
+                    key={step.stage}
+                    className="relative flex items-start gap-3"
+                  >
+                    <div className="absolute -left-[22px] top-0">
+                      <StageIcon status={status} />
+                    </div>
+
+                    <div>
+                      <p className="text-sm font-medium text-gray-800">
+                        {step.label}
+                      </p>
+                      <p className="text-xs text-gray-500 capitalize">
+                        {status.replace("_", " ")}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* ================= SKILLS ================= */}
+            {/* {applications.candidate.skills?.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-4">
+                {application.candidate.skills.slice(0, 3).map((skill, index) => (
+                  <span
+                    key={index}
+                    className="px-3 py-1 bg-gray-100 text-gray-700 
+                               rounded-full text-xs font-medium"
+                  >
+                    {skill}
+                  </span>
+                ))}
+                {application.candidate.skills.length > 3 && (
+                  <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">
+                    +{application.candidate.skills.length - 3}
+                  </span>
+                )}
+              </div>
+            )} */}
+             {application.candidate.skills && application.candidate.skills.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mb-4">
+                          {application.candidate.skills.slice(0, 3).map((skill, index) => (
+                            <span
+                              key={index}
+                              className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium"
+                            >
+                              {skill}
+                            </span>
+                          ))}
+                          {application.candidate.skills.length > 3 && (
+                            <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium">
+                              +{application.candidate.skills.length - 3}
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+            {/* ================= ACTIONS ================= */}
+            <div className="flex gap-2 mt-4">
+              <select
+                value={application.status}
+                onChange={(e) =>
+                  handleStatusChange(application.id, e.target.value)
+                }
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg 
+                           text-sm focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="screening">Screening</option>
+                <option value="interview">Interview</option>
+                <option value="qualified">Qualified</option>
+                <option value="rejected">Rejected</option>
+              </select>
+
+              <button
+                onClick={() => {
+                  setSelectedApplication(application);
+                  setView("candidate");
+                }}
+                className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                <Eye className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* ================= HOVER DETAILS ================= */}
+            <div
+              className="
+                absolute left-0 right-0 bottom-20 mx-4
+                bg-white border border-gray-200 rounded-lg shadow-lg
+                p-4 text-sm text-gray-700
+                opacity-0 translate-y-2
+                group-hover:opacity-100 group-hover:translate-y-0
+                transition-all duration-200
+                pointer-events-none z-10
+              "
+            >
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Mail className="w-4 h-4 text-gray-500" />
+                  {application.candidate.email}
+                </div>
+
+                {application.candidate.phone && (
+                  <div className="flex items-center gap-2">
+                    <Phone className="w-4 h-4 text-gray-500" />
+                    {application.candidate.phone}
+                  </div>
+                )}
+
+                <div className="flex items-center gap-2">
+                  <Briefcase className="w-4 h-4 text-gray-500" />
+                  {application.candidate.years_of_experience} years experience
+                </div>
+
+                {application.candidate.education && (
+                  <div className="flex items-center gap-2">
+                    <GraduationCap className="w-4 h-4 text-gray-500" />
+                    {application.candidate.education}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+)}
+
           {activeTab === 'details' && (
             <div className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

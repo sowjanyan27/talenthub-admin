@@ -2,6 +2,23 @@ import { ArrowLeft, Mail, Phone, Briefcase, GraduationCap } from 'lucide-react';
 import { useState } from 'react';
 import { mockTimeline } from '../mock/mockTimeline';
 import { EventRenderer } from './EventRenderer';
+import { CheckCircle, Clock } from 'lucide-react';
+
+const getStatusIcon = (event: any) => {
+  if (event.status === 'completed')
+    return <CheckCircle className="w-4 h-4 text-green-600" />;
+
+  if (event.status === 'pending')
+    return <Clock className="w-4 h-4 text-orange-500" />;
+
+  if (event.type === 'email')
+    return <Mail className="w-4 h-4 text-blue-500" />;
+
+  if (event.type === 'bot_call')
+    return <Phone className="w-4 h-4 text-purple-500" />;
+
+  return null;
+};
 
 export default function CandidatePage({ application, onBack }: any) {
   const candidate = application.candidate;
@@ -34,9 +51,20 @@ export default function CandidatePage({ application, onBack }: any) {
                 : 'hover:bg-gray-50'
             }`}
           >
-            <p className="font-medium text-sm">{event.title}</p>
-            <p className="text-xs text-gray-500">{event.summary}</p>
-            <p className="text-xs text-gray-400 mt-1">{event.date}</p>
+            {/* <p className="font-medium text-sm">{event.title}</p> */}
+            <div className="flex gap-2">
+  {getStatusIcon(event)}
+  <div>
+    <p className="font-medium text-sm">{event.title}</p>
+    <p className="text-xs text-gray-500">{event.stage}</p>
+    {event.date && (
+      <p className="text-xs text-gray-400">{event.date}</p>
+    )}
+  </div>
+</div>
+
+            {/* <p className="text-xs text-gray-500">{event.summary}</p>
+            <p className="text-xs text-gray-400 mt-1">{event.date}</p> */}
           </div>
         ))}
       </div>
