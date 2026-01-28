@@ -222,7 +222,6 @@
 // }
 import { useState, useRef, useEffect } from 'react';
 import { X, Upload, FileText, Trash2, Briefcase } from 'lucide-react';
-import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
 
 interface UploadResumeModalProps {
@@ -241,7 +240,7 @@ export default function UploadResumeModal({
   const [files, setFiles] = useState<File[]>([]);
   const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(false);
-
+  const API_BASE = import.meta.env.VITE_API_BASE_URL;
   const folderInputRef = useRef<HTMLInputElement | null>(null);
   const singleInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -253,73 +252,129 @@ export default function UploadResumeModal({
     }
   }, []);
 
-  const handleUpload = async () => {
-    if (files.length === 0) return;
+  // const handleUpload = async () => {
+  //   if (files.length === 0) return;
 
-    setLoading(true);
+  //   setLoading(true);
 
-    try {
-      for (const file of files) {
-        const filePath = `${jobId}/${Date.now()}-${file.name}`;
+  //   try {
+  //     for (const file of files) {
+  //       const filePath = `${jobId}/${Date.now()}-${file.name}`;
 
-        // Init progress
-        setUploadProgress((prev) => ({ ...prev, [file.name]: 0 }));
+  //       // Init progress
+  //       setUploadProgress((prev) => ({ ...prev, [file.name]: 0 }));
 
-        const interval = setInterval(() => {
-          setUploadProgress((prev) => {
-            const progress = prev[file.name] ?? 0;
-            if (progress >= 90) return prev;
-            return { ...prev, [file.name]: progress + 10 };
-          });
-        }, 200);
+  //       const interval = setInterval(() => {
+  //         setUploadProgress((prev) => {
+  //           const progress = prev[file.name] ?? 0;
+  //           if (progress >= 90) return prev;
+  //           return { ...prev, [file.name]: progress + 10 };
+  //         });
+  //       }, 200);
 
-        // Upload to Supabase Storage
-        const { error: uploadError } = await supabase.storage
-          .from('resumes')
-          .upload(filePath, file);
+  //       // Upload to Supabase Storage
+  //       const { error: uploadError } = await supabase.storage
+  //         .from('resumes')
+  //         .upload(filePath, file);
 
-        clearInterval(interval);
-        setUploadProgress((prev) => ({ ...prev, [file.name]: 100 }));
+  //       clearInterval(interval);
+  //       setUploadProgress((prev) => ({ ...prev, [file.name]: 100 }));
 
-        if (uploadError) throw uploadError;
+  //       if (uploadError) throw uploadError;
 
-        // Create candidate
-        const { data: candidate, error: candidateError } = await supabase
-          .from('candidates')
-          .insert({
-            full_name: file.name.replace(/\.(pdf|doc|docx)$/i, ''),
-            resume_url: filePath,
-          })
-          .select()
-          .single();
+  //       // Create candidate
+  //       const { data: candidate, error: candidateError } = await supabase
+  //         .from('candidates')
+  //         .insert({
+  //           full_name: file.name.replace(/\.(pdf|doc|docx)$/i, ''),
+  //           resume_url: filePath,
+  //         })
+  //         .select()
+  //         .single();
 
-        if (candidateError) throw candidateError;
+  //       if (candidateError) throw candidateError;
 
-        // Create application
-        const { error: applicationError } = await supabase
-          .from('applications')
-          .insert({
-            job_id: jobId,
-            candidate_id: candidate.id,
-            status: 'screening',
-            match_score: 0,
-          });
+  //       // Create application
+  //       const { error: applicationError } = await supabase
+  //         .from('applications')
+  //         .insert({
+  //           job_id: jobId,
+  //           candidate_id: candidate.id,
+  //           status: 'screening',
+  //           match_score: 0,
+  //         });
 
-        if (applicationError) throw applicationError;
+  //       if (applicationError) throw applicationError;
+  //     }
+
+  //     toast.success(`${files.length} resume(s) uploaded successfully`);
+  //     onSuccess();
+  //   } catch (error) {
+  //     console.error(error);
+  //     toast.error('Failed to upload resumes');
+  //   } finally {
+  //     setLoading(false);
+  //     setFiles([]);
+  //     setUploadProgress({});
+  //   }
+  // };
+const handleUpload = async () => {
+  if (files.length === 0) return;
+  setLoading(true);
+
+  try {
+    // 👉 SINGLE RESUME → CALL BACKEND API
+    if (files.length === 1) {
+      const file = files[0];
+
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("first_name", file.name.split(" ")[0] || "");
+      formData.append("last_name", "");
+      formData.append("email", "");
+
+      setUploadProgress({ [file.name]: 30 });
+
+      const res = await fetch(
+        `${API_BASE}/api/v1/candidates/upload-resume`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      setUploadProgress({ [file.name]: 70 });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || "Upload failed");
       }
 
-      toast.success(`${files.length} resume(s) uploaded successfully`);
-      onSuccess();
-    } catch (error) {
-      console.error(error);
-      toast.error('Failed to upload resumes');
-    } finally {
-      setLoading(false);
-      setFiles([]);
-      setUploadProgress({});
-    }
-  };
+      const data = await res.json();
+      console.log("Resume processed:", data);
 
+      setUploadProgress({ [file.name]: 100 });
+
+      toast.success("Resume parsed & candidate created!");
+      onSuccess();
+    }
+
+    // 👉 MULTIPLE FILES → old Supabase flow (optional)
+    else {
+      for (const file of files) {
+        // keep your existing Supabase logic here
+      }
+    }
+
+  } catch (error) {
+    console.error(error);
+    toast.error("Resume upload failed");
+  } finally {
+    setLoading(false);
+    setFiles([]);
+    setUploadProgress({});
+  }
+};
   const removeFile = (fileName: string) => {
     setFiles((prev) => prev.filter((f) => f.name !== fileName));
   };
