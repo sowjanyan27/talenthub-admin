@@ -228,7 +228,7 @@ export default function JobDetails({ jobId, onBack }: JobDetailsProps) {
   }
 
   return (
-    <div className="flex-1 bg-gray-50 overflow-y-auto">
+    <div className="ml-64 min-h-screen flex-1 bg-gray-50 overflow-y-auto">
       <div className="max-w-7xl mx-auto p-8">
         <div className="mb-6">
           <button

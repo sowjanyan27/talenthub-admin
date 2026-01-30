@@ -22,7 +22,7 @@ function App() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-[linear-gradient(to_bottom_right,#F9FAFB,#F9FAFB,#EFF6FF)]">
       <Toaster position="top-right" />
       <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
       {activeTab === 'jobs' && <Jobs />}
