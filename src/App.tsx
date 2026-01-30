@@ -4,6 +4,7 @@ import Login from './pages/Login';
 import Jobs from './pages/Jobs';
 import Sidebar from './components/Sidebar';
 import { Toaster } from 'react-hot-toast';
+import TaskNotificationsPaging from './pages/Dashboard';
 
 function App() {
   const { user, loading } = useAuth();
@@ -26,11 +27,12 @@ function App() {
       <Toaster position="top-right" />
       <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
       {activeTab === 'jobs' && <Jobs />}
-      {activeTab === 'dashboard' && (
+      {/* {activeTab === 'dashboard' &&< (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-gray-500">Dashboard - Coming soon</div>
         </div>
-      )}
+      )} */}
+      {activeTab === 'dashboard'&& <TaskNotificationsPaging/>}
       {activeTab === 'candidates' && (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-gray-500">Candidates - Coming soon</div>

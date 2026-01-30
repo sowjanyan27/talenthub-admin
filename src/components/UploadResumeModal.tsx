@@ -1,14 +1,4 @@
-// import { useState } from 'react';
-// import { X, Upload, FileText, Trash2, Briefcase } from 'lucide-react';
-// import { supabase } from '../lib/supabase';
-// import toast from 'react-hot-toast';
 
-// interface UploadResumeModalProps {
-//   jobId: string;
-//   jobTitle?: string;
-//   onClose: () => void;
-//   onSuccess: () => void;
-// }
 
 // export default function UploadResumeModal({
 //   jobId,
@@ -19,81 +9,160 @@
 //   const [files, setFiles] = useState<File[]>([]);
 //   const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
 //   const [loading, setLoading] = useState(false);
-//   const [dragActive, setDragActive] = useState(false);
+//   const API_BASE = import.meta.env.VITE_API_BASE_URL;
+//   const folderInputRef = useRef<HTMLInputElement | null>(null);
+//   const singleInputRef = useRef<HTMLInputElement | null>(null);
+//   const [mode, setMode] = useState<"files" | "folderPath">("files");
+//   const [folderPath, setFolderPath] = useState("");
 
-//   const handleUpload = async () => {
-//     if (files.length === 0) return;
+//   /* Enable folder selection */
+//   useEffect(() => {
+//     if (folderInputRef.current) {
+//       (folderInputRef.current as any).webkitdirectory = true;
+//       (folderInputRef.current as any).directory = true;
+//     }
+//   }, []);
 
-//     setLoading(true);
+//   // const handleUpload = async () => {
+//   //   if (files.length === 0) return;
 
-//     try {
+//   //   setLoading(true);
+
+//   //   try {
+//   //     for (const file of files) {
+//   //       const filePath = `${jobId}/${Date.now()}-${file.name}`;
+
+//   //       // Init progress
+//   //       setUploadProgress((prev) => ({ ...prev, [file.name]: 0 }));
+
+//   //       const interval = setInterval(() => {
+//   //         setUploadProgress((prev) => {
+//   //           const progress = prev[file.name] ?? 0;
+//   //           if (progress >= 90) return prev;
+//   //           return { ...prev, [file.name]: progress + 10 };
+//   //         });
+//   //       }, 200);
+
+//   //       // Upload to Supabase Storage
+//   //       const { error: uploadError } = await supabase.storage
+//   //         .from('resumes')
+//   //         .upload(filePath, file);
+
+//   //       clearInterval(interval);
+//   //       setUploadProgress((prev) => ({ ...prev, [file.name]: 100 }));
+
+//   //       if (uploadError) throw uploadError;
+
+//   //       // Create candidate
+//   //       const { data: candidate, error: candidateError } = await supabase
+//   //         .from('candidates')
+//   //         .insert({
+//   //           full_name: file.name.replace(/\.(pdf|doc|docx)$/i, ''),
+//   //           resume_url: filePath,
+//   //         })
+//   //         .select()
+//   //         .single();
+
+//   //       if (candidateError) throw candidateError;
+
+//   //       // Create application
+//   //       const { error: applicationError } = await supabase
+//   //         .from('applications')
+//   //         .insert({
+//   //           job_id: jobId,
+//   //           candidate_id: candidate.id,
+//   //           status: 'screening',
+//   //           match_score: 0,
+//   //         });
+
+//   //       if (applicationError) throw applicationError;
+//   //     }
+
+//   //     toast.success(`${files.length} resume(s) uploaded successfully`);
+//   //     onSuccess();
+//   //   } catch (error) {
+//   //     console.error(error);
+//   //     toast.error('Failed to upload resumes');
+//   //   } finally {
+//   //     setLoading(false);
+//   //     setFiles([]);
+//   //     setUploadProgress({});
+//   //   }
+//   // };
+
+
+// const handleUpload = async () => {
+//   if (mode === "files" && files.length === 0) return;
+//   if (mode === "folderPath" && !folderPath.trim()) {
+//     toast.error("Enter server folder path");
+//     return;
+//   }
+
+//   setLoading(true);
+
+//   try {
+//     // 🟢 MODE 1: USER FILE UPLOAD (single or multiple)
+//     if (mode === "files") {
 //       for (const file of files) {
-//         const filePath = `${jobId}/${Date.now()}-${file.name}`;
+//         const formData = new FormData();
+//         formData.append("file", file);
+//         formData.append("first_name", file.name.split(" ")[0] || "");
+//         formData.append("last_name", "");
+//         formData.append("email", "");
 
-//         // Simulate progress for demo
-//         setUploadProgress((prev) => ({ ...prev, [file.name]: 0 }));
-//         const interval = setInterval(() => {
-//           setUploadProgress((prev) => {
-//             const progress = prev[file.name] ?? 0;
-//             if (progress >= 90) return prev;
-//             return { ...prev, [file.name]: progress + 10 };
-//           });
-//         }, 200);
+//         setUploadProgress(prev => ({ ...prev, [file.name]: 25 }));
 
-//         // Upload file
-//         const { error: uploadError } = await supabase.storage
-//           .from('resumes')
-//           .upload(filePath, file);
+//         const res = await fetch(
+//           `${API_BASE}/api/v1/candidates/upload-resume`,
+//           { method: "POST", body: formData }
+//         );
 
-//         clearInterval(interval);
-//         setUploadProgress((prev) => ({ ...prev, [file.name]: 100 }));
+//         setUploadProgress(prev => ({ ...prev, [file.name]: 70 }));
 
-//         if (uploadError) throw uploadError;
+//         if (!res.ok) {
+//           let msg = "Upload failed";
+//           try {
+//             const err = await res.json();
+//             msg = err.detail || msg;
+//           } catch {}
+//           throw new Error(`${file.name}: ${msg}`);
+//         }
 
-//         // Create candidate
-//         const { data: candidate, error: candidateError } = await supabase
-//           .from('candidates')
-//           .insert({
-//             full_name: file.name.replace(/\.(pdf|doc|docx)$/i, ''),
-//             resume_url: filePath,
-//           })
-//           .select()
-//           .single();
-
-//         if (candidateError) throw candidateError;
-
-//         // Create application
-//         const { error: applicationError } = await supabase
-//           .from('applications')
-//           .insert({
-//             job_id: jobId,
-//             candidate_id: candidate.id,
-//             status: 'screening',
-//             match_score: 0,
-//           });
-
-//         if (applicationError) throw applicationError;
+//         await res.json();
+//         setUploadProgress(prev => ({ ...prev, [file.name]: 100 }));
 //       }
 
-//       toast.success(`${files.length} resume(s) uploaded successfully!`);
-//       onSuccess();
-//     } catch (error) {
-//       console.error('Resume upload failed:', error);
-//       toast.error('Failed to upload resume(s)');
-//     } finally {
-//       setLoading(false);
-//       setFiles([]);
-//       setUploadProgress({});
+//       toast.success(`${files.length} resume(s) processed 🚀`);
 //     }
-//   };
 
-//   const handleDrop = (e: React.DragEvent<HTMLLabelElement>) => {
-//     e.preventDefault();
-//     setDragActive(false);
-//     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-//       setFiles((prev) => [...prev, ...Array.from(e.dataTransfer.files)]);
+//     // 🟣 MODE 2: SERVER FOLDER IMPORT
+//     if (mode === "folderPath") {
+//       const res = await fetch(
+//         `${API_BASE}/api/v1/candidates/batch-upload-folder?folder_path=${encodeURIComponent(folderPath)}`,
+//         { method: "POST" }
+//       );
+
+//       if (!res.ok) {
+//         const err = await res.json();
+//         throw new Error(err.detail || "Batch import failed");
+//       }
+
+//       const data = await res.json();
+//       toast.success(`${data.processed || "All"} resumes imported 🚀`);
 //     }
-//   };
+
+//     onSuccess();
+
+//   } catch (err: any) {
+//     console.error(err);
+//     toast.error(err.message);
+//   } finally {
+//     setLoading(false);
+//     setFiles([]);
+//     setUploadProgress({});
+//     setFolderPath("");
+//   }
+// };
 
 //   const removeFile = (fileName: string) => {
 //     setFiles((prev) => prev.filter((f) => f.name !== fileName));
@@ -102,96 +171,101 @@
 //   return (
 //     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
 //       <div className="bg-white rounded-xl w-full max-w-lg">
+
 //         {/* Header */}
-//         {/* Header */}
-// <div className="flex items-center justify-between px-6 py-4 border-b">
-//   <div>
-//     <h2 className="text-lg font-semibold text-gray-900 mb-2">Upload Resumes</h2>
+//         <div className="flex items-center justify-between px-6 py-4 border-b">
+//           <div>
+//             <h2 className="text-lg font-semibold text-gray-900">Upload Resumes</h2>
+//             {jobTitle && (
+//               <div className="flex items-center gap-2 bg-blue-50 text-blue-700 px-3 py-1 rounded-full w-fit mt-2">
+//                 <Briefcase className="w-4 h-4" />
+//                 <span className="font-medium">{jobTitle}</span>
+//               </div>
+//             )}
+//           </div>
 
-//     {/* Job Title Highlight */}
-//     <div className="flex items-center gap-2 bg-blue-50 text-blue-700 px-3 py-1 rounded-full w-fit">
-//       <Briefcase  className="w-4 h-4" />
-//       <span className="font-medium">{jobTitle}</span>
-//     </div>
-//   </div>
-
-//   <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
-//     <X className="w-5 h-5" />
-//   </button>
-// </div>
-
+//           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+//             <X className="w-5 h-5" />
+//           </button>
+//         </div>
 
 //         {/* Body */}
 //         <div className="p-6">
-//           {/* Drag-and-Drop */}
-//           <label
-//             className={`border-2 border-dashed rounded-lg p-8 flex flex-col items-center justify-center cursor-pointer transition ${
-//               dragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
-//             }`}
-//             onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
-//             onDragLeave={(e) => { e.preventDefault(); setDragActive(false); }}
-//             onDrop={handleDrop}
-//           >
-//             <Upload className="w-8 h-8 text-gray-400 mb-2" />
-//             <p className="text-sm text-gray-600">
-//               Click or drag PDF / DOCX files
-//             </p>
-//             {/* <input
-//               type="file"
-//               accept=".pdf,.doc,.docx"
-//               multiple
-//               className="hidden"
-//               onChange={(e) => setFiles((prev) => [...prev, ...Array.from(e.target.files || [])])}
-//             /> */}
-//             <input
-//   type="file"
-//   multiple
-//   className="hidden"
-//   ref={(el) => {
-//     if (el) {
-//       // Enable folder selection safely
-//       (el as any).webkitdirectory = true;
-//       (el as any).directory = true;
-//     }
-//   }}
-//   onChange={(e) => {
-//     const allFiles = Array.from(e.target.files || []);
 
-//     // Filter resumes AFTER folder selection
-//     const resumeFiles = allFiles.filter(file =>
-//       /\.(pdf|doc|docx)$/i.test(file.name)
-//     );
+//           {/* Hidden Inputs */}
+//           <input
+//             ref={folderInputRef}
+//             type="file"
+//             multiple
+//             className="hidden"
+//             onChange={(e) => {
+//               const allFiles = Array.from(e.target.files || []);
+//               const resumeFiles = allFiles.filter(file =>
+//                 /\.(pdf|doc|docx)$/i.test(file.name)
+//               );
+//               setFiles(resumeFiles);
+//             }}
+//           />
 
-//     setFiles(resumeFiles);
-//   }}
-// />
+//           <input
+//             ref={singleInputRef}
+//             type="file"
+//             accept=".pdf,.doc,.docx"
+//             className="hidden"
+//             onChange={(e) => {
+//               const file = e.target.files?.[0];
+//               if (file) setFiles([file]);
+//             }}
+//           />
 
-//           </label>
 
-//           {/* Files List with Progress and Remove */}
+//           {/* Upload Options */}
+//           <div className="grid grid-cols-2 gap-4">
+//             <button
+//               onClick={() => folderInputRef.current?.click()}
+//               className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center hover:bg-blue-50 transition"
+//             >
+//               <Upload className="w-6 h-6 text-blue-600 mb-2" />
+//               <p className="text-sm font-medium">Upload Folder</p>
+//               <p className="text-xs text-gray-500 mt-1">Bulk resumes</p>
+//             </button>
+
+//             <button
+//               onClick={() => singleInputRef.current?.click()}
+//               className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center hover:bg-green-50 transition"
+//             >
+//               <FileText className="w-6 h-6 text-green-600 mb-2" />
+//               <p className="text-sm font-medium">Upload Single</p>
+//               <p className="text-xs text-gray-500 mt-1">One resume</p>
+//             </button>
+//           </div>
+
+//           {/* Files List */}
 //           {files.length > 0 && (
 //             <div className="mt-4 space-y-2">
 //               {files.map((file) => (
-//                 <div key={file.name} className="flex flex-col border rounded p-2">
-//                   <div className="flex items-center justify-between">
-//                     <div className="flex items-center text-sm text-gray-700">
+//                 <div key={file.name} className="border rounded p-2">
+//                   <div className="flex justify-between items-center">
+//                     <div className="flex items-center text-sm">
 //                       <FileText className="w-4 h-4 mr-2" />
 //                       {file.name}
 //                     </div>
 //                     <button
 //                       onClick={() => removeFile(file.name)}
-//                       className="text-red-500 hover:text-red-700"
+//                       className="text-red-500"
 //                     >
 //                       <Trash2 className="w-4 h-4" />
 //                     </button>
 //                   </div>
-//                   <div className="w-full bg-gray-200 h-2 rounded-full mt-1">
+
+//                   <div className="w-full bg-gray-200 h-2 rounded-full mt-2">
 //                     <div
-//                       className="bg-blue-600 h-2 rounded-full transition-all"
+//                       className="bg-blue-600 h-2 rounded-full"
 //                       style={{ width: `${uploadProgress[file.name] ?? 0}%` }}
 //                     />
 //                   </div>
-//                   <div className="text-right text-xs text-gray-500 mt-1">
+
+//                   <div className="text-xs text-right text-gray-500 mt-1">
 //                     {uploadProgress[file.name] ?? 0}%
 //                   </div>
 //                 </div>
@@ -202,10 +276,7 @@
 
 //         {/* Footer */}
 //         <div className="px-6 py-4 border-t flex justify-end gap-2">
-//           <button
-//             onClick={onClose}
-//             className="px-4 py-2 border rounded-lg"
-//           >
+//           <button onClick={onClose} className="px-4 py-2 border rounded-lg">
 //             Cancel
 //           </button>
 //           <button
@@ -216,233 +287,339 @@
 //             {loading ? 'Uploading...' : 'Upload'}
 //           </button>
 //         </div>
+
 //       </div>
 //     </div>
 //   );
 // }
-import { useState, useRef, useEffect } from 'react';
-import { X, Upload, FileText, Trash2, Briefcase } from 'lucide-react';
-import { supabase } from '../lib/supabase';
-import toast from 'react-hot-toast';
+
+import { useState, useRef, useEffect } from "react";
+import { X, Upload, FileText, Briefcase } from "lucide-react";
+import toast from "react-hot-toast";
+
+/* ================= TYPES ================= */
+
+export interface ResumeProcess {
+  file: string;
+  status: "uploading" | "processing" | "completed" | "failed";
+  candidate_id?: string;
+}
 
 interface UploadResumeModalProps {
   jobId: string;
   jobTitle?: string;
   onClose: () => void;
   onSuccess: () => void;
+  onUploadProgress: (data: ResumeProcess[]) => void;
 }
 
+type Status = "waiting" | "uploading" | "processing" | "completed" | "error";
+
+/* ================= COMPONENT ================= */
+
 export default function UploadResumeModal({
-  jobId,
   jobTitle,
   onClose,
   onSuccess,
+  onUploadProgress,
 }: UploadResumeModalProps) {
+  const API_BASE = import.meta.env.VITE_API_BASE_URL;
+
+  const [mode, setMode] = useState<"single" | "multiple" | "server">("single");
   const [files, setFiles] = useState<File[]>([]);
-  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
+  const [folderPath, setFolderPath] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const folderInputRef = useRef<HTMLInputElement | null>(null);
-  const singleInputRef = useRef<HTMLInputElement | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>(
+    {}
+  );
+  const [fileStatus, setFileStatus] = useState<Record<string, Status>>({});
+  const [serverResults, setServerResults] = useState<Record<string, any>>({});
 
-  /* Enable folder selection */
+  const singleInputRef = useRef<HTMLInputElement | null>(null);
+  const folderInputRef = useRef<HTMLInputElement | null>(null);
+
   useEffect(() => {
     if (folderInputRef.current) {
       (folderInputRef.current as any).webkitdirectory = true;
-      (folderInputRef.current as any).directory = true;
     }
   }, []);
 
+  /* ================= FILE SELECT ================= */
+
+  const handleFiles = (selected: File[]) => {
+    const resumeFiles = selected.filter((f) =>
+      /\.(pdf|doc|docx)$/i.test(f.name)
+    );
+
+    setFiles(resumeFiles);
+
+    const statusInit: any = {};
+    const progressInit: any = {};
+
+    resumeFiles.forEach((f) => {
+      statusInit[f.name] = "waiting";
+      progressInit[f.name] = 0;
+    });
+
+    setFileStatus(statusInit);
+    setUploadProgress(progressInit);
+
+    // Notify parent
+    onUploadProgress(
+      resumeFiles.map((f) => ({
+        file: f.name,
+        status: "uploading",
+      }))
+    );
+  };
+
+  /* ================= UPLOAD ================= */
+
   const handleUpload = async () => {
-    if (files.length === 0) return;
+    if (mode !== "server" && files.length === 0) return;
+
+    if (mode === "server" && !folderPath.trim()) {
+      toast.error("Enter server folder path");
+      return;
+    }
 
     setLoading(true);
 
     try {
-      for (const file of files) {
-        const filePath = `${jobId}/${Date.now()}-${file.name}`;
+      /* 🟢 FILE UPLOAD MODE */
+      if (mode === "single" || mode === "multiple") {
+        for (const file of files) {
+          const formData = new FormData();
+          formData.append("file", file);
 
-        // Init progress
-        setUploadProgress((prev) => ({ ...prev, [file.name]: 0 }));
+          // Uploading
+          setFileStatus((s) => ({ ...s, [file.name]: "uploading" }));
+          setUploadProgress((p) => ({ ...p, [file.name]: 30 }));
 
-        const interval = setInterval(() => {
-          setUploadProgress((prev) => {
-            const progress = prev[file.name] ?? 0;
-            if (progress >= 90) return prev;
-            return { ...prev, [file.name]: progress + 10 };
-          });
-        }, 200);
+          onUploadProgress([
+            { file: file.name, status: "uploading" },
+          ]);
 
-        // Upload to Supabase Storage
-        const { error: uploadError } = await supabase.storage
-          .from('resumes')
-          .upload(filePath, file);
+          const res = await fetch(
+            `${API_BASE}/api/v1/candidates/upload-resume`,
+            { method: "POST", body: formData }
+          );
 
-        clearInterval(interval);
-        setUploadProgress((prev) => ({ ...prev, [file.name]: 100 }));
+          if (!res.ok) {
+            setFileStatus((s) => ({ ...s, [file.name]: "error" }));
+            onUploadProgress([{ file: file.name, status: "failed" }]);
+            continue;
+          }
 
-        if (uploadError) throw uploadError;
+          const data = await res.json();
 
-        // Create candidate
-        const { data: candidate, error: candidateError } = await supabase
-          .from('candidates')
-          .insert({
-            full_name: file.name.replace(/\.(pdf|doc|docx)$/i, ''),
-            resume_url: filePath,
-          })
-          .select()
-          .single();
+          // Processing
+          setFileStatus((s) => ({ ...s, [file.name]: "processing" }));
+          setUploadProgress((p) => ({ ...p, [file.name]: 70 }));
 
-        if (candidateError) throw candidateError;
+          onUploadProgress([
+            { file: file.name, status: "processing" },
+          ]);
 
-        // Create application
-        const { error: applicationError } = await supabase
-          .from('applications')
-          .insert({
-            job_id: jobId,
-            candidate_id: candidate.id,
-            status: 'screening',
-            match_score: 0,
-          });
+          await new Promise((r) => setTimeout(r, 800));
 
-        if (applicationError) throw applicationError;
+          // Completed
+          setFileStatus((s) => ({ ...s, [file.name]: "completed" }));
+          setUploadProgress((p) => ({ ...p, [file.name]: 100 }));
+
+          onUploadProgress([
+            {
+              file: file.name,
+              status: "completed",
+              candidate_id: data?.candidate_id,
+            },
+          ]);
+        }
+
+        toast.success("Resumes processed 🚀");
       }
 
-      toast.success(`${files.length} resume(s) uploaded successfully`);
+      /* 🟣 SERVER FOLDER MODE */
+      if (mode === "server") {
+        const res = await fetch(
+          `${API_BASE}/api/v1/candidates/batch-upload-folder?folder_path=${encodeURIComponent(
+            folderPath
+          )}`,
+          { method: "POST" }
+        );
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.detail || "Batch import failed");
+
+        const resultMap: any = {};
+        const statusUpdate: any = {};
+        const progressUpdate: any = {};
+        const fileObjects: File[] = [];
+
+        data.results.forEach((item: any) => {
+          const fileName = item.file;
+          fileObjects.push({ name: fileName } as File);
+
+          statusUpdate[fileName] =
+            item.status === "success" ? "completed" : "error";
+          progressUpdate[fileName] = item.status === "success" ? 100 : 0;
+
+          resultMap[fileName] = item;
+        });
+
+        setFiles(fileObjects);
+        setFileStatus(statusUpdate);
+        setUploadProgress(progressUpdate);
+        setServerResults(resultMap);
+
+        // Notify parent
+        onUploadProgress(
+          data.results.map((r: any) => ({
+            file: r.file,
+            status: r.status === "success" ? "completed" : "failed",
+            candidate_id: r.candidate_id,
+          }))
+        );
+
+        toast.success(
+          `✅ ${data.processed} processed | ⚠️ ${data.duplicates} duplicates | ❌ ${data.errors} errors`
+        );
+      }
+
       onSuccess();
-    } catch (error) {
-      console.error(error);
-      toast.error('Failed to upload resumes');
+    } catch (err: any) {
+      toast.error(err.message);
     } finally {
       setLoading(false);
-      setFiles([]);
-      setUploadProgress({});
     }
   };
 
-  const removeFile = (fileName: string) => {
-    setFiles((prev) => prev.filter((f) => f.name !== fileName));
+  const statusColor = {
+    waiting: "bg-gray-100 text-gray-600",
+    uploading: "bg-blue-100 text-blue-600",
+    processing: "bg-yellow-100 text-yellow-700",
+    completed: "bg-green-100 text-green-700",
+    error: "bg-red-100 text-red-600",
   };
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl w-full max-w-lg">
+  /* ================= UI ================= */
 
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b">
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl w-full max-w-lg shadow-lg">
+        <div className="flex justify-between items-center px-6 py-4 border-b">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">Upload Resumes</h2>
+            <h2 className="text-lg font-semibold">Upload Resumes</h2>
             {jobTitle && (
-              <div className="flex items-center gap-2 bg-blue-50 text-blue-700 px-3 py-1 rounded-full w-fit mt-2">
+              <div className="flex items-center gap-2 bg-blue-50 text-blue-700 px-3 py-1 rounded-full mt-2 w-fit">
                 <Briefcase className="w-4 h-4" />
-                <span className="font-medium">{jobTitle}</span>
+                {jobTitle}
               </div>
             )}
           </div>
-
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <X className="w-5 h-5" />
-          </button>
+          <button onClick={onClose}><X /></button>
         </div>
 
-        {/* Body */}
-        <div className="p-6">
-
-          {/* Hidden Inputs */}
-          <input
-            ref={folderInputRef}
-            type="file"
-            multiple
-            className="hidden"
-            onChange={(e) => {
-              const allFiles = Array.from(e.target.files || []);
-              const resumeFiles = allFiles.filter(file =>
-                /\.(pdf|doc|docx)$/i.test(file.name)
-              );
-              setFiles(resumeFiles);
-            }}
-          />
-
-          <input
-            ref={singleInputRef}
-            type="file"
-            accept=".pdf,.doc,.docx"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) setFiles([file]);
-            }}
-          />
-
-          {/* Upload Options */}
-          <div className="grid grid-cols-2 gap-4">
-            <button
-              onClick={() => folderInputRef.current?.click()}
-              className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center hover:bg-blue-50 transition"
-            >
-              <Upload className="w-6 h-6 text-blue-600 mb-2" />
-              <p className="text-sm font-medium">Upload Folder</p>
-              <p className="text-xs text-gray-500 mt-1">Bulk resumes</p>
-            </button>
-
-            <button
-              onClick={() => singleInputRef.current?.click()}
-              className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center hover:bg-green-50 transition"
-            >
-              <FileText className="w-6 h-6 text-green-600 mb-2" />
-              <p className="text-sm font-medium">Upload Single</p>
-              <p className="text-xs text-gray-500 mt-1">One resume</p>
-            </button>
+        <div className="p-6 space-y-4">
+          <div className="flex gap-2">
+            {["single", "multiple", "server"].map((m) => (
+              <button
+                key={m}
+                onClick={() => setMode(m as any)}
+                className={`px-3 py-1 rounded border ${
+                  mode === m ? "bg-blue-600 text-white" : ""
+                }`}
+              >
+                {m}
+              </button>
+            ))}
           </div>
 
-          {/* Files List */}
-          {files.length > 0 && (
-            <div className="mt-4 space-y-2">
-              {files.map((file) => (
-                <div key={file.name} className="border rounded p-2">
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center text-sm">
-                      <FileText className="w-4 h-4 mr-2" />
-                      {file.name}
-                    </div>
-                    <button
-                      onClick={() => removeFile(file.name)}
-                      className="text-red-500"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  <div className="w-full bg-gray-200 h-2 rounded-full mt-2">
-                    <div
-                      className="bg-blue-600 h-2 rounded-full"
-                      style={{ width: `${uploadProgress[file.name] ?? 0}%` }}
-                    />
-                  </div>
-
-                  <div className="text-xs text-right text-gray-500 mt-1">
-                    {uploadProgress[file.name] ?? 0}%
-                  </div>
-                </div>
-              ))}
-            </div>
+          {mode === "single" && (
+            <>
+              <input
+                ref={singleInputRef}
+                type="file"
+                hidden
+                onChange={(e) =>
+                  handleFiles(e.target.files ? [e.target.files[0]] : [])
+                }
+              />
+              <button
+                onClick={() => singleInputRef.current?.click()}
+                className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center"
+              >
+                <FileText className="w-6 h-6 text-green-600 mb-2" />
+                Upload Single Resume
+              </button>
+            </>
           )}
+
+          {mode === "multiple" && (
+            <>
+              <input
+                ref={folderInputRef}
+                type="file"
+                multiple
+                hidden
+                onChange={(e) =>
+                  handleFiles(Array.from(e.target.files || []))
+                }
+              />
+              <button
+                onClick={() => folderInputRef.current?.click()}
+                className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center"
+              >
+                <Upload className="w-6 h-6 text-blue-600 mb-2" />
+                Upload Multiple Resumes
+              </button>
+            </>
+          )}
+
+          {mode === "server" && (
+            <input
+              type="text"
+              placeholder="/home/resumes"
+              value={folderPath}
+              onChange={(e) => setFolderPath(e.target.value)}
+              className="w-full border rounded p-2"
+            />
+          )}
+
+          {files.map((file) => (
+            <div key={file.name} className="border rounded p-2">
+              <div className="flex justify-between text-sm">
+                <span className="flex gap-2 items-center">
+                  <FileText className="w-4 h-4" /> {file.name}
+                </span>
+                <span className={`text-xs px-2 py-1 rounded-full ${statusColor[fileStatus[file.name]]}`}>
+                  {fileStatus[file.name]}
+                </span>
+              </div>
+
+              <div className="w-full bg-gray-200 h-2 mt-2 rounded">
+                <div
+                  className="bg-blue-600 h-2 rounded"
+                  style={{ width: `${uploadProgress[file.name] || 0}%` }}
+                />
+              </div>
+            </div>
+          ))}
         </div>
 
-        {/* Footer */}
         <div className="px-6 py-4 border-t flex justify-end gap-2">
-          <button onClick={onClose} className="px-4 py-2 border rounded-lg">
+          <button onClick={onClose} className="border px-4 py-2 rounded">
             Cancel
           </button>
           <button
             onClick={handleUpload}
-            disabled={loading || files.length === 0}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50"
+            disabled={loading}
+            className="bg-blue-600 text-white px-4 py-2 rounded"
           >
-            {loading ? 'Uploading...' : 'Upload'}
+            {loading ? "Uploading..." : "Upload"}
           </button>
         </div>
-
       </div>
     </div>
   );
