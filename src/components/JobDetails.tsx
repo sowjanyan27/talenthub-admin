@@ -3,7 +3,6 @@ import { ArrowLeft, Users, FileText, Calendar, TrendingUp, Plus, Eye, Mail, Phon
 import { supabase } from '../lib/supabase';
 import AddCandidateModal from './AddCandidateModal';
 import UploadResumeModal from './UploadResumeModal';
-// import CandidateDetailsModal from './CandidateDetailsModal';
 import { mockApplications, mockJobs } from '../mock/mockData';
 import CandidatePage from './CandidatePage';
 import { exportCandidatesExcel } from '../utils/exportExcel';
@@ -44,6 +43,12 @@ interface Application {
   match_score: number;
   applied_at: string;
   candidate: Candidate;
+}
+
+interface ResumeProcess {
+  file: string
+  status: 'uploading' | 'processing' | 'completed' | 'failed'
+  candidate_id?: string
 }
 
 interface JobDetailsProps {
@@ -96,16 +101,8 @@ export default function JobDetails({ jobId, onBack }: JobDetailsProps) {
   const [selectedApplication, setSelectedApplication] = useState<any>(null);
   const [view, setView] = useState<'job' | 'candidate'>('job');
   // const [selectedApplication, setSelectedApplication] = useState<any>(null);
+  const [resumeQueue, setResumeQueue] = useState<ResumeProcess[]>([])
 
-
-  // useEffect(() => {
-  //   loadJobDetails();
-  // }, [jobId]);
-  // useEffect(() => {
-  //   setJob(mockJobs);
-  //   setApplications(mockApplications);
-  //   setLoading(false);
-  // }, []);
   useEffect(() => {
     const selectedJob = mockJobs.find(j => j.id === jobId) || null;
     setJob(selectedJob);
@@ -436,11 +433,68 @@ export default function JobDetails({ jobId, onBack }: JobDetailsProps) {
             </div>
           </div>
 
-          {/* {activeTab === 'candidates' && (
+          
+          {activeTab === 'candidates' && (
             <div className="p-6">
               <p className="text-sm text-gray-600 mb-6">
                 Manage candidates who have applied or been added to this position
               </p>
+                {/* ================= LIVE RESUME PROCESSING ================= */}
+{resumeQueue.length > 0 && (
+  <div className="mb-6 bg-blue-50 border border-blue-200 rounded-xl p-4">
+    <h3 className="text-sm font-semibold text-blue-800 mb-3">
+      Resume Processing Status
+    </h3>
+
+    <div className="space-y-3">
+      {resumeQueue.map((item, index) => (
+        <div key={index} className="bg-white rounded-lg border p-3 shadow-sm">
+
+          <div className="flex justify-between items-center mb-1">
+            <span className="text-sm font-medium text-gray-800">
+              {item.file}
+            </span>
+
+            <span
+              className={`text-xs px-2 py-1 rounded-full font-medium ${
+                item.status === "uploading"
+                  ? "bg-blue-100 text-blue-700"
+                  : item.status === "processing"
+                  ? "bg-yellow-100 text-yellow-700"
+                  : item.status === "completed"
+                  ? "bg-green-100 text-green-700"
+                  : "bg-red-100 text-red-700"
+              }`}
+            >
+              {item.status}
+            </span>
+          </div>
+
+          {item.candidate_id && (
+            <p className="text-xs text-gray-500">
+              Candidate ID: {item.candidate_id}
+            </p>
+          )}
+
+          {/* Progress Bar */}
+          <div className="w-full bg-gray-200 h-2 rounded mt-2 overflow-hidden">
+            <div
+              className={`h-2 transition-all duration-500 ${
+                item.status === "completed"
+                  ? "bg-green-500 w-full"
+                  : item.status === "processing"
+                  ? "bg-yellow-500 w-2/3"
+                  : item.status === "uploading"
+                  ? "bg-blue-500 w-1/3"
+                  : "bg-red-500 w-full"
+              }`}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
 
               {applications.length === 0 ? (
                 <div className="text-center py-12">
@@ -451,17 +505,21 @@ export default function JobDetails({ jobId, onBack }: JobDetailsProps) {
                   {applications.map((application) => (
                     <div
                       key={application.id}
-                      className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow"
+                      className="relative group border border-gray-200 rounded-xl p-6 
+                       bg-white hover:shadow-md transition-shadow"
                     >
+                      {/* ================= HEADER ================= */}
                       <div className="flex items-start justify-between mb-4">
                         <div>
                           <h3 className="text-lg font-semibold text-gray-900 mb-1">
                             {application.candidate.full_name}
                           </h3>
                           <p className="text-sm text-gray-600">
-                            Applied {new Date(application.applied_at).toLocaleDateString()}
+                            Applied{" "}
+                            {new Date(application.applied_at).toLocaleDateString()}
                           </p>
                         </div>
+
                         <span
                           className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
                             application.status
@@ -471,13 +529,17 @@ export default function JobDetails({ jobId, onBack }: JobDetailsProps) {
                         </span>
                       </div>
 
+                      {/* ================= MATCH SCORE ================= */}
                       <div className="mb-4">
                         <div className="flex items-center justify-between mb-1">
-                          <span className="text-sm font-medium text-gray-700">Match Score</span>
+                          <span className="text-sm font-medium text-gray-700">
+                            Match Score
+                          </span>
                           <span className="text-sm font-semibold text-gray-900">
                             {application.match_score}%
                           </span>
                         </div>
+
                         <div className="w-full bg-gray-200 rounded-full h-2">
                           <div
                             className="bg-blue-600 h-2 rounded-full transition-all"
@@ -485,16 +547,20 @@ export default function JobDetails({ jobId, onBack }: JobDetailsProps) {
                           />
                         </div>
                       </div>
-                     
-                      <div className="mt-4 border-l-2 border-gray-200 pl-4 space-y-4">
-                        {TIMELINE_STEPS.map((step, index) => {
+
+                      {/* ================= VERTICAL TIMELINE ================= */}
+                      <div className="mt-4 border-l-2 border-gray-200 pl-4 space-y-2">
+                        {TIMELINE_STEPS.map((step) => {
                           const status = getStageStatus(
                             mockTimeline[application.id] || [],
                             step.stage
                           );
 
                           return (
-                            <div key={step.stage} className="flex items-start gap-3 relative">
+                            <div
+                              key={step.stage}
+                              className="relative flex items-start gap-3"
+                            >
                               <div className="absolute -left-[22px] top-0">
                                 <StageIcon status={status} />
                               </div>
@@ -503,9 +569,8 @@ export default function JobDetails({ jobId, onBack }: JobDetailsProps) {
                                 <p className="text-sm font-medium text-gray-800">
                                   {step.label}
                                 </p>
-
                                 <p className="text-xs text-gray-500 capitalize">
-                                  {status.replace('_', ' ')}
+                                  {status.replace("_", " ")}
                                 </p>
                               </div>
                             </div>
@@ -513,31 +578,25 @@ export default function JobDetails({ jobId, onBack }: JobDetailsProps) {
                         })}
                       </div>
 
-
-
-                      <div className="space-y-2 mb-4">
-                        <div className="flex items-center text-sm text-gray-600">
-                          <Mail className="w-4 h-4 mr-2" />
-                          {application.candidate.email}
-                        </div>
-                        {application.candidate.phone && (
-                          <div className="flex items-center text-sm text-gray-600">
-                            <Phone className="w-4 h-4 mr-2" />
-                            {application.candidate.phone}
-                          </div>
-                        )}
-                        <div className="flex items-center text-sm text-gray-600">
-                          <Briefcase className="w-4 h-4 mr-2" />
-                          {application.candidate.years_of_experience} years experience
-                        </div>
-                        {application.candidate.education && (
-                          <div className="flex items-center text-sm text-gray-600">
-                            <GraduationCap className="w-4 h-4 mr-2" />
-                            {application.candidate.education}
-                          </div>
-                        )}
-                      </div>
-
+                      {/* ================= SKILLS ================= */}
+                      {/* {applications.candidate.skills?.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-4">
+                {application.candidate.skills.slice(0, 3).map((skill, index) => (
+                  <span
+                    key={index}
+                    className="px-3 py-1 bg-gray-100 text-gray-700 
+                               rounded-full text-xs font-medium"
+                  >
+                    {skill}
+                  </span>
+                ))}
+                {application.candidate.skills.length > 3 && (
+                  <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">
+                    +{application.candidate.skills.length - 3}
+                  </span>
+                )}
+              </div>
+            )} */}
                       {application.candidate.skills && application.candidate.skills.length > 0 && (
                         <div className="flex flex-wrap gap-2 mb-4">
                           {application.candidate.skills.slice(0, 3).map((skill, index) => (
@@ -556,189 +615,36 @@ export default function JobDetails({ jobId, onBack }: JobDetailsProps) {
                         </div>
                       )}
 
-                      <div className="flex gap-2">
+                      {/* ================= ACTIONS ================= */}
+                      <div className="flex gap-2 mt-4">
                         <select
                           value={application.status}
-                          onChange={(e) => handleStatusChange(application.id, e.target.value)}
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          onChange={(e) =>
+                            handleStatusChange(application.id, e.target.value)
+                          }
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg 
+                           text-sm focus:ring-2 focus:ring-blue-500"
                         >
                           <option value="screening">Screening</option>
                           <option value="interview">Interview</option>
                           <option value="qualified">Qualified</option>
                           <option value="rejected">Rejected</option>
                         </select>
+
                         <button
                           onClick={() => {
                             setSelectedApplication(application);
-                            setView('candidate');
+                            setView("candidate");
                           }}
+                          className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50"
                         >
                           <Eye className="w-4 h-4" />
                         </button>
-
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )} */}
-                      
-{activeTab === 'candidates' && (
-  <div className="p-6">
-    <p className="text-sm text-gray-600 mb-6">
-      Manage candidates who have applied or been added to this position
-    </p>
 
-    {applications.length === 0 ? (
-      <div className="text-center py-12">
-        <div className="text-gray-500">No candidates yet</div>
-      </div>
-    ) : (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {applications.map((application) => (
-          <div
-            key={application.id}
-            className="relative group border border-gray-200 rounded-xl p-6 
-                       bg-white hover:shadow-md transition-shadow"
-          >
-            {/* ================= HEADER ================= */}
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                  {application.candidate.full_name}
-                </h3>
-                <p className="text-sm text-gray-600">
-                  Applied{" "}
-                  {new Date(application.applied_at).toLocaleDateString()}
-                </p>
-              </div>
-
-              <span
-                className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                  application.status
-                )}`}
-              >
-                {application.status}
-              </span>
-            </div>
-
-            {/* ================= MATCH SCORE ================= */}
-            <div className="mb-4">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-sm font-medium text-gray-700">
-                  Match Score
-                </span>
-                <span className="text-sm font-semibold text-gray-900">
-                  {application.match_score}%
-                </span>
-              </div>
-
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div
-                  className="bg-blue-600 h-2 rounded-full transition-all"
-                  style={{ width: `${application.match_score}%` }}
-                />
-              </div>
-            </div>
-
-            {/* ================= VERTICAL TIMELINE ================= */}
-            <div className="mt-4 border-l-2 border-gray-200 pl-4 space-y-2">
-              {TIMELINE_STEPS.map((step) => {
-                const status = getStageStatus(
-                  mockTimeline[application.id] || [],
-                  step.stage
-                );
-
-                return (
-                  <div
-                    key={step.stage}
-                    className="relative flex items-start gap-3"
-                  >
-                    <div className="absolute -left-[22px] top-0">
-                      <StageIcon status={status} />
-                    </div>
-
-                    <div>
-                      <p className="text-sm font-medium text-gray-800">
-                        {step.label}
-                      </p>
-                      <p className="text-xs text-gray-500 capitalize">
-                        {status.replace("_", " ")}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* ================= SKILLS ================= */}
-            {/* {applications.candidate.skills?.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-4">
-                {application.candidate.skills.slice(0, 3).map((skill, index) => (
-                  <span
-                    key={index}
-                    className="px-3 py-1 bg-gray-100 text-gray-700 
-                               rounded-full text-xs font-medium"
-                  >
-                    {skill}
-                  </span>
-                ))}
-                {application.candidate.skills.length > 3 && (
-                  <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">
-                    +{application.candidate.skills.length - 3}
-                  </span>
-                )}
-              </div>
-            )} */}
-             {application.candidate.skills && application.candidate.skills.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mb-4">
-                          {application.candidate.skills.slice(0, 3).map((skill, index) => (
-                            <span
-                              key={index}
-                              className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium"
-                            >
-                              {skill}
-                            </span>
-                          ))}
-                          {application.candidate.skills.length > 3 && (
-                            <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium">
-                              +{application.candidate.skills.length - 3}
-                            </span>
-                          )}
-                        </div>
-                      )}
-
-            {/* ================= ACTIONS ================= */}
-            <div className="flex gap-2 mt-4">
-              <select
-                value={application.status}
-                onChange={(e) =>
-                  handleStatusChange(application.id, e.target.value)
-                }
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg 
-                           text-sm focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="screening">Screening</option>
-                <option value="interview">Interview</option>
-                <option value="qualified">Qualified</option>
-                <option value="rejected">Rejected</option>
-              </select>
-
-              <button
-                onClick={() => {
-                  setSelectedApplication(application);
-                  setView("candidate");
-                }}
-                className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-              >
-                <Eye className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* ================= HOVER DETAILS ================= */}
-            <div
-              className="
+                      {/* ================= HOVER DETAILS ================= */}
+                      <div
+                        className="
                 absolute left-0 right-0 bottom-20 mx-4
                 bg-white border border-gray-200 rounded-lg shadow-lg
                 p-4 text-sm text-gray-700
@@ -747,39 +653,39 @@ export default function JobDetails({ jobId, onBack }: JobDetailsProps) {
                 transition-all duration-200
                 pointer-events-none z-10
               "
-            >
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Mail className="w-4 h-4 text-gray-500" />
-                  {application.candidate.email}
+                      >
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Mail className="w-4 h-4 text-gray-500" />
+                            {application.candidate.email}
+                          </div>
+
+                          {application.candidate.phone && (
+                            <div className="flex items-center gap-2">
+                              <Phone className="w-4 h-4 text-gray-500" />
+                              {application.candidate.phone}
+                            </div>
+                          )}
+
+                          <div className="flex items-center gap-2">
+                            <Briefcase className="w-4 h-4 text-gray-500" />
+                            {application.candidate.years_of_experience} years experience
+                          </div>
+
+                          {application.candidate.education && (
+                            <div className="flex items-center gap-2">
+                              <GraduationCap className="w-4 h-4 text-gray-500" />
+                              {application.candidate.education}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-
-                {application.candidate.phone && (
-                  <div className="flex items-center gap-2">
-                    <Phone className="w-4 h-4 text-gray-500" />
-                    {application.candidate.phone}
-                  </div>
-                )}
-
-                <div className="flex items-center gap-2">
-                  <Briefcase className="w-4 h-4 text-gray-500" />
-                  {application.candidate.years_of_experience} years experience
-                </div>
-
-                {application.candidate.education && (
-                  <div className="flex items-center gap-2">
-                    <GraduationCap className="w-4 h-4 text-gray-500" />
-                    {application.candidate.education}
-                  </div>
-                )}
-              </div>
+              )}
             </div>
-          </div>
-        ))}
-      </div>
-    )}
-  </div>
-)}
+          )}
 
           {activeTab === 'details' && (
             <div className="p-6">
@@ -872,7 +778,7 @@ export default function JobDetails({ jobId, onBack }: JobDetailsProps) {
         />
       )}
 
-      {showUploadModal && (
+      {/* {showUploadModal && (
         <UploadResumeModal
           jobId={jobId}
           onClose={() => setShowUploadModal(false)}
@@ -881,7 +787,7 @@ export default function JobDetails({ jobId, onBack }: JobDetailsProps) {
             loadJobDetails();
           }}
         />
-      )}
+      )} */}
 
       {/* {selectedApplication && (
         <CandidateDetailsModal
@@ -890,6 +796,17 @@ export default function JobDetails({ jobId, onBack }: JobDetailsProps) {
         />
       )} */}
 
+{showUploadModal && (
+  <UploadResumeModal
+    jobId={jobId}
+    onClose={() => setShowUploadModal(false)}
+    onSuccess={() => {
+      setShowUploadModal(false)
+      loadJobDetails()
+    }}
+    onUploadProgress={(data) => setResumeQueue(data)}   // ADD
+  />
+)}
 
 
 
