@@ -3,12 +3,18 @@ import { useAuth } from '../contexts/AuthContext';
 import { useEffect, useRef, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 
+// interface SidebarProps {
+//   activeTab: string;
+//   onTabChange: (tab: string) => void;
+// }
 interface SidebarProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
+  onOpenKeyExtraction: () => void;   // ✅ ADD THIS
 }
 
-export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
+export default function Sidebar({ activeTab, onTabChange,  onOpenKeyExtraction,   // ✅ HERE
+ }: SidebarProps) {
   const { profile, signOut } = useAuth();
   const [open, setOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -64,9 +70,17 @@ export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
               className="absolute left-full top-0 ml-2 w-56 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-50"
             >
               <ul className="p-2 text-gray-700 font-medium">
-                <li className="px-5 py-3 text-[0.98rem] hover:bg-[linear-gradient(to_right,#f8fafc,#eef2f7,#e5eaf1)] rounded-xl cursor-pointer transition-colors">
-                  Key Extraction
-                </li>
+                <li
+  onClick={() => {
+    setOpen(false);          // close dropdown
+     onTabChange('extraction');
+    onOpenKeyExtraction();   // open modal
+  }}
+  className="px-5 py-3 text-[0.98rem] hover:bg-[linear-gradient(to_right,#f8fafc,#eef2f7,#e5eaf1)] rounded-xl cursor-pointer transition-colors"
+>
+  Key Extraction
+</li>
+
                 <li className="px-5 py-3 text-[0.98rem] hover:bg-[linear-gradient(to_right,#f8fafc,#eef2f7,#e5eaf1)]  rounded-xl cursor-pointer transition-colors">
                   Extraction with Matching Score
                 </li>
