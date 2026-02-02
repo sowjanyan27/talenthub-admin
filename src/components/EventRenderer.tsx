@@ -524,7 +524,7 @@
 
 
 
-import { CheckCircle, Clock, Mail, Phone, FileText } from 'lucide-react';
+import { CheckCircle, Clock, Mail, Phone, FileText, CheckCircle2, AlertCircle, XCircle } from 'lucide-react';
 
 // interface CandidateQuestion {
 //   question: string;
@@ -655,14 +655,20 @@ export const EventRenderer = ({ event }: EventRendererProps) => {
   /* ================= PROFILE UPLOAD ================= */
   if (event.stage === 'profile_uploaded') {
     return (
-      <div className="bg-white border rounded-xl p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <FileText className="w-5 h-5 text-blue-600" />
-          <h3 className="font-semibold text-lg">Profile Uploaded</h3>
+      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200">
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 rounded-full bg-[linear-gradient(to_bottom_right,#3b82f6,#06b6d4)] flex items-center justify-center shrink-0 shadow-lg shadow-blue-500/30">
+            <FileText className="w-5 h-5 text-white" />
+          </div>
+          <h3 className="text-xl font-semibold text-slate-900">Profile Uploaded</h3>
         </div>
-        <p className="text-sm text-gray-700">
-          Resume File: <span className="font-medium ml-2">{event.data.file}</span>
-        </p>
+        <div className="text-sm text-slate-600 mt-5">
+          <span className="font-medium inline-block mb-1">Resume File:</span>{' '}
+          <p className="text-blue-600 hover:text-blue-700 underline decoration-blue-300 hover:decoration-blue-500 transition-colors">
+          {event.data.file}
+          </p>
+        </div>
+        
       </div>
     );
   }
@@ -670,31 +676,49 @@ export const EventRenderer = ({ event }: EventRendererProps) => {
   /* ================= MATCHING RESULT ================= */
   if (event.stage === 'matching_completed') {
     return (
-      <div className="bg-white border rounded-xl p-6">
-        <h3 className="font-semibold text-lg mb-4">JD Matching Result</h3>
+      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200">
+        <h3 className="text-xl font-semibold text-slate-900 mb-6">JD Matching Result</h3>
 
-        <div className="mb-4">
-          <p className="text-3xl font-bold text-blue-600">{event.data.match_score}%</p>
-          <p className="text-sm text-gray-500">Overall Match Score</p>
+        <div className="mb-6">
+          <div className="text-5xl font-bold bg-[linear-gradient(to_right,#2563eb,#0891b2)] bg-clip-text text-transparent mb-2">
+            {event.data.match_score}%
+          </div>
+          <p className="text-slate-500 text-sm">Overall Match Score</p>
         </div>
 
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid md:grid-cols-2 gap-6">
           <div>
-            <h4 className="font-medium mb-2">Matched Skills</h4>
-            <ul className="list-disc list-inside text-sm text-gray-700">
+            <h4 className="font-semibold text-slate-900 mb-3">Matched Skills</h4>
+            <div className="flex items-center gap-3">
+            {/* <ul className="list-disc list-inside text-sm text-gray-700">
               {event.data.matched_skills?.map((skill) => (
                 <li key={skill}>{skill}</li>
               ))}
-            </ul>
+            </ul> */}
+            {event.data.matched_skills?.map((skill) => (
+              <div key={skill} className='flex items-center w-auto gap-2 text-sm px-3 py-2 bg-green-50 text-green-700 rounded-lg border border-green-200'>
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>{skill}</span>
+              </div>
+            ))}
+            </div>
           </div>
 
           <div>
-            <h4 className="font-medium mb-2">Missing Skills</h4>
-            <ul className="list-disc list-inside text-sm text-gray-700">
+            <h4 className="font-semibold text-slate-900 mb-3">Missing Skills</h4>
+            {/* <ul className="list-disc list-inside text-sm text-gray-700">
               {event.data.missing_skills?.map((skill) => (
                 <li key={skill}>{skill}</li>
               ))}
-            </ul>
+            </ul> */}
+            <div className="flex items-center gap-3">
+              {event.data.missing_skills?.map((skill) => (
+                <div key={skill} className="flex items-center gap-2 text-sm px-3 py-2 bg-red-50 text-red-700 rounded-lg border border-red-200">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{skill}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -704,25 +728,35 @@ export const EventRenderer = ({ event }: EventRendererProps) => {
   /* ================= EMAIL EVENT ================= */
   if (event.stage === 'email_sent') {
     return (
-      <div className="bg-white border rounded-xl p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Mail className="w-5 h-5 text-green-600" />
-          <h3 className="font-semibold text-lg">Interview Email Sent</h3>
-          <CheckCircle className="w-4 h-4 text-green-600 ml-auto" />
-        </div>
+      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md 
+        transition-all duration-200 relative">
+          <div className="absolute top-6 right-6">
+            <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+              <CheckCircle2 className="w-5 h-5 text-green-600" />
+            </div>
+          </div>
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-10 h-10 rounded-full bg-[linear-gradient(to_bottom_right,#22c55e,#10b981)] text-white flex items-center justify-center flex-shrink-0 shadow-lg shadow-green-500/30">
+              <Mail className="w-5 h-5 text-white" />
+            </div>
+            <h3 className="text-xl font-semibold text-slate-900">Interview Email Sent</h3>
+          </div>
 
-        <div className="space-y-2 text-sm">
-          <p>
-            <strong>To:</strong> {event.data.to}
-          </p>
-          <p>
-            <strong>Subject:</strong> {event.data.subject}
-          </p>
+        <div className="space-y-2">
+          <div>
+            <span className="text-sm font-semibold text-slate-900">To: </span>
+            <span className="text-sm text-slate-600">{event.data.to}</span>
+          </div>
+          <div>
+            <span className="text-sm font-semibold text-slate-900">Subject: </span>
+            <span className="text-sm text-slate-600">{event.data.subject}</span>
+          </div>
         </div>
-
-        <pre className="mt-4 bg-gray-50 p-4 rounded text-sm whitespace-pre-wrap">
-          {event.data.body}
-        </pre>
+        <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 mt-4">
+          <pre  className="text-sm text-slate-700 font-mono whitespace-pre-wrap">
+            {event.data.body}
+          </pre>
+        </div>
       </div>
     );
   }
@@ -730,13 +764,30 @@ export const EventRenderer = ({ event }: EventRendererProps) => {
   /* ================= BOT CALL (SCREENING / CONFERENCE) ================= */
   if (event.type === 'bot_call') {
     return (
-      <div className="bg-white border rounded-xl p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Phone className="w-5 h-5 text-purple-600" />
+      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200 relative">
+        {event.status === 'completed' &&
+          <div className="absolute top-6 right-6">
+            <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+              <CheckCircle2 className="w-5 h-5 text-green-600" />
+            </div>
+          </div>
+        }
+        {event.status === 'pending' &&
+          <div className="absolute top-6 right-6">
+            <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
+              <Clock className="w-5 h-5 text-orange-600" />
+            </div>
+          </div>
+        }
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-10 h-10 rounded-full bg-[linear-gradient(to_bottom_right,#3b82f6,#14b8a6)] flex items-center justify-center flex-shrink-0 shadow-lg shadow-blue-500/30">
+            <Phone className="w-5 h-5 text-white" />
+          </div>
           <h3 className="font-semibold text-lg">{event.title}</h3>
-
-          {event.status === 'completed' && <CheckCircle className="w-4 h-4 text-green-600 ml-auto" />}
-          {event.status === 'pending' && <Clock className="w-4 h-4 text-orange-500 ml-auto" />}
+        </div>
+        <div>
+          {/* {event.status === 'completed' && <CheckCircle className="w-4 h-4 text-green-600 ml-auto" />}
+          {event.status === 'pending' && <Clock className="w-4 h-4 text-orange-500 ml-auto" />} */}
         </div>
 
         {/* PENDING BOT CALL */}
@@ -801,9 +852,10 @@ export const EventRenderer = ({ event }: EventRendererProps) => {
 
             {/* ================= DURATION ================= */}
             {event.data.duration && (
-              <p>
-                <strong>Duration:</strong> {event.data.duration}
-              </p>
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-full text-sm font-medium">
+                <span className="font-semibold">Duration:</span>
+                <span>{event.data.duration}</span>
+              </div>
             )}
 
             {/* ================= SCORES ================= */}
@@ -959,29 +1011,40 @@ export const EventRenderer = ({ event }: EventRendererProps) => {
   /* ================= REJECT EVENT ================= */
   if (event.stage === 'rejected') {
     return (
-      <div className="bg-red-50 border border-red-300 rounded-xl p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <span className="text-red-600 text-lg font-semibold">❌ Candidate Rejected</span>
+      <div className="bg-[linear-gradient(to_bottom_right,#fef2f2,#fff1f2)] rounded-2xl p-6 shadow-sm border border-red-200 hover:shadow-md transition-all duration-200">
+        <div className="flex items-center gap-4 mb-5">
+          <div className="w-10 h-10 rounded-full bg-[linear-gradient(to_bottom_right,#ef4444,#f43f5e)] flex items-center justify-center flex-shrink-0 shadow-lg shadow-red-500/30">
+            <XCircle className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h3 className="text-xl font-semibold text-red-900">Candidate Rejected</h3>
+          </div>
         </div>
 
-        <div className="space-y-2 text-sm text-gray-800">
-          <p>
-            <strong>Reason:</strong> {event.data.reason}
-          </p>
-          <p>
-            <strong>Rejected By:</strong> {event.data.rejected_by}
-          </p>
-          <p>
-            <strong>Date:</strong> {event.data.rejected_at}
-          </p>
+        <div className="space-y-2">
+          <div>
+            <span className="text-sm font-semibold text-red-900">Reason: </span>
+            <span className="text-sm text-red-700">{event.data.reason}</span>
+          </div>
+          <div>
+            <span className="text-sm font-semibold text-red-900">Rejected By: </span>
+            <span className="text-sm text-red-700">{event.data.rejected_by}</span>
+          </div>
+          <div>
+            <span className="text-sm font-semibold text-red-900">Date: </span>
+            <span className="text-sm text-red-700">{event.data.rejected_at}</span>
+          </div>
         </div>
 
         {event.data.feedback && event.data.feedback.length > 0 && (
           <div className="mt-4">
-            <h4 className="font-medium mb-2 text-red-700">Feedback</h4>
-            <ul className="list-disc list-inside text-sm text-gray-700">
+            <h4 className="text-sm font-semibold text-red-900 mb-2">Feedback</h4>
+            <ul className="space-y-2">
               {event.data.feedback.map((item, idx) => (
-                <li key={idx}>{item}</li>
+                <li key={idx} className='flex items-center gap-2 text-sm text-red-700'>
+                  <span className=" w-1.5 h-1.5 rounded-full bg-red-500 shrink-0 mt-0" />
+                  <span>{item}</span>
+                </li>
               ))}
             </ul>
           </div>
