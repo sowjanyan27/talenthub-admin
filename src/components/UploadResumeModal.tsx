@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect } from "react";
 import { X, FileText, Briefcase } from "lucide-react";
 import toast from "react-hot-toast";
+import { apiQueue } from "../utils/requestQueue";
 
 
 async function fetchWithRetry(
@@ -9,23 +10,27 @@ async function fetchWithRetry(
   options?: RequestInit,
   maxRetries = 3
 ): Promise<Response> {
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    const res = await fetch(url, options);
+  return apiQueue.enqueue(async () => {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      const res = await fetch(url, options);
 
-    if (res.status === 429 && attempt < maxRetries) {
-      const retryAfter = res.headers.get("Retry-After");
-      const delay = retryAfter
-        ? parseInt(retryAfter, 10) * 1000
-        : Math.min(2000 * 2 ** attempt, 30000); // 2s, 4s, 8s … cap 30s
-      toast(`Rate limited — retrying in ${Math.round(delay / 1000)}s…`, { icon: "⏳" });
-      await new Promise((r) => setTimeout(r, delay));
-      continue;
+      if (res.status === 429 && attempt < maxRetries) {
+        const retryAfter = res.headers.get("Retry-After");
+        const delay = retryAfter
+          ? parseInt(retryAfter, 10) * 1000
+          : Math.min(2000 * 2 ** attempt, 30000); // 2s, 4s, 8s … cap 30s
+        toast(`Rate limited — retrying in ${Math.round(delay / 1000)}s…`, {
+          icon: "⏳",
+        });
+        await new Promise((r) => setTimeout(r, delay));
+        continue;
+      }
+
+      return res;
     }
 
-    return res;
-  }
-
-  throw new Error("Max retries exceeded (429 rate limit)");
+    throw new Error("Max retries exceeded (429 rate limit)");
+  });
 }
 
 /* ================= TYPES ================= */
@@ -139,7 +144,7 @@ export default function UploadResumeModal({
           folder_path: folderPath,
           recursive: false,
           output_filename: "batch_output.json",
-          max_concurrent: 5,
+          max_concurrent: 2,
           enable_gap_analysis: false,
           job_description: "",
         };
@@ -202,7 +207,7 @@ export default function UploadResumeModal({
 
       /* 🟦 MULTIPLE MODE → FILE UPLOAD */
       if (mode === "multiple" && files.length > 0) {
-        for (const file of files) {
+        const uploadOne = async (file: File) => {
           const formData = new FormData();
           formData.append("file", file);
 
@@ -214,14 +219,16 @@ export default function UploadResumeModal({
           if (!res.ok) {
             setFileStatus((s) => ({ ...s, [file.name]: "error" }));
             onUploadProgress([{ file: file.name, status: "failed" }]);
-            continue;
+            return;
           }
 
           const data = await res.json();
           setFileStatus((s) => ({ ...s, [file.name]: "completed" }));
           setUploadProgress((p) => ({ ...p, [file.name]: 100 }));
           onUploadProgress([{ file: file.name, status: "completed", candidate_id: data?.candidate_id }]);
-        }
+        };
+
+        await Promise.allSettled(files.map((f) => uploadOne(f)));
         toast.success("Resumes uploaded 🚀");
       }
 
