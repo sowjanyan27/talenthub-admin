@@ -3,6 +3,31 @@ import { useState, useRef, useEffect } from "react";
 import { X, FileText, Briefcase } from "lucide-react";
 import toast from "react-hot-toast";
 
+
+async function fetchWithRetry(
+  url: string,
+  options?: RequestInit,
+  maxRetries = 3
+): Promise<Response> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const res = await fetch(url, options);
+
+    if (res.status === 429 && attempt < maxRetries) {
+      const retryAfter = res.headers.get("Retry-After");
+      const delay = retryAfter
+        ? parseInt(retryAfter, 10) * 1000
+        : Math.min(2000 * 2 ** attempt, 30000); // 2s, 4s, 8s … cap 30s
+      toast(`Rate limited — retrying in ${Math.round(delay / 1000)}s…`, { icon: "⏳" });
+      await new Promise((r) => setTimeout(r, delay));
+      continue;
+    }
+
+    return res;
+  }
+
+  throw new Error("Max retries exceeded (429 rate limit)");
+}
+
 /* ================= TYPES ================= */
 
 export interface ResumeProcess {
@@ -119,7 +144,7 @@ export default function UploadResumeModal({
           job_description: "",
         };
 
-        const res = await fetch(url, {
+        const res = await fetchWithRetry(url, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -157,7 +182,7 @@ export default function UploadResumeModal({
         onUploadProgress([{ file: fileName, status: "processing" }]);
 
         const url = `${API_BASE}/api/v1/profiles/extract-single?file_path=${encodeURIComponent(folderPath)}`;
-        const res = await fetch(url, { method: "POST" });
+        const res = await fetchWithRetry(url, { method: "POST" });
         const data = await res.json();
 
         if (!res.ok || !data.success) {
@@ -185,7 +210,7 @@ export default function UploadResumeModal({
           setUploadProgress((p) => ({ ...p, [file.name]: 30 }));
           onUploadProgress([{ file: file.name, status: "uploading" }]);
 
-          const res = await fetch(`${API_BASE}/api/v1/candidates/upload-resume`, { method: "POST", body: formData });
+          const res = await fetchWithRetry(`${API_BASE}/api/v1/candidates/upload-resume`, { method: "POST", body: formData });
           if (!res.ok) {
             setFileStatus((s) => ({ ...s, [file.name]: "error" }));
             onUploadProgress([{ file: file.name, status: "failed" }]);
@@ -203,7 +228,11 @@ export default function UploadResumeModal({
       onSuccess();
     } catch (err: any) {
       console.error("🔥 Upload error:", err);
-      toast.error(err.message);
+      if (err.message?.includes("429") || err.message?.includes("rate limit")) {
+        toast.error("Too many requests — please wait a moment and try again.");
+      } else {
+        toast.error(err.message);
+      }
     } finally {
       setLoading(false);
     }
