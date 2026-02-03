@@ -14,11 +14,26 @@ function App() {
   const [activeTab, setActiveTab] = useState('jobs');
 const [showUploadModal, setShowUploadModal] = useState(false);
 const [profiles, setProfiles] = useState<any[]>([]);
+const [excelFile, setExcelFile] = useState<string | null>(null);
 
-const handleExtractedProfile = (newProfiles: any[]) => {
-  setProfiles(prev => [...prev, ...newProfiles]); // 🔥 SPREAD, not push
-  setActiveTab('extraction');
+
+// const handleExtractedProfile = (newProfiles: any[]) => {
+//   setProfiles(prev => [...prev, ...newProfiles]); // 🔥 SPREAD, not push
+//   setActiveTab('extraction');
+// };
+
+const handleExtractedProfile = (
+  newProfiles: any[],
+  excel?: string | null
+) => {
+  console.log("📄 EXCEL RECEIVED IN APP:", excel);
+
+  setProfiles(prev => [...prev, ...newProfiles]);
+  setExcelFile(excel ?? null);
+  setActiveTab("extraction");
 };
+
+
 
   if (loading) {
     return (
@@ -60,7 +75,8 @@ const handleExtractedProfile = (newProfiles: any[]) => {
         </div>
       )}
       {activeTab === 'extraction' && (
-  <ExtractedProfiles profiles={profiles} />
+  <ExtractedProfiles profiles={profiles}  excelFile={excelFile}/>
+  
 )}
 
       {showUploadModal && (

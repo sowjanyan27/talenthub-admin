@@ -66,7 +66,8 @@ interface UploadResumeModalProps {
   onClose: () => void;
   onSuccess: () => void;
   onUploadProgress: (data: ResumeProcess[]) => void;
-  onExtracted: (profiles: Profile[]) => void;
+  // onExtracted: (profiles: Profile[]) => void;
+  onExtracted: (profiles: Profile[], excelFile?: string | null) => void;
 }
 
 type Status = "waiting" | "uploading" | "processing" | "completed" | "error";
@@ -92,6 +93,7 @@ export default function UploadResumeModal({
 
   const singleInputRef = useRef<HTMLInputElement | null>(null);
   const folderInputRef = useRef<HTMLInputElement | null>(null);
+  const [excelFile, setExcelFile] = useState<string | null>(null);
 
   useEffect(() => {
     if (folderInputRef.current) {
@@ -164,13 +166,18 @@ export default function UploadResumeModal({
           toast.error(data?.message || "Folder extraction failed");
           return;
         }
-
+        // ✅ save excel filename
+        const excelFileName = data.excel_path
+          ? data.excel_path.split("\\").pop()
+          : null;
+          console.log(data.excel_path,'excel_path')
+          console.log(excelFileName,'excelfilename')
         // Flatten in case API returns nested arrays
         const profiles: Profile[] = Array.isArray(data.profiles[0])
           ? data.profiles.flat()
           : data.profiles;
-
-        onExtracted(profiles || []);
+      
+        onExtracted(profiles || [], excelFileName);
         setFileStatus({ [folderName]: "completed" });
         setUploadProgress({ [folderName]: 100 });
         onUploadProgress([{ file: folderName, status: "completed" }]);
