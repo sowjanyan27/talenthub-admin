@@ -58,6 +58,7 @@ export interface Profile {
   matched_skills?: string;
   missing_skills?: string;
   gap_summary?: string;
+  status?: "New" | "Screening" | "Interview" | "Rejected" | "Hired";
 }
 
 interface UploadResumeModalProps {

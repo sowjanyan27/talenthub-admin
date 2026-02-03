@@ -5,7 +5,7 @@ import Jobs from './pages/Jobs';
 import Sidebar from './components/Sidebar';
 import { Toaster } from 'react-hot-toast';
 import TaskNotificationsPaging from './pages/Dashboard';
-import UploadResumeModal from './components/UploadResumeModal';
+import UploadResumeModal, { type Profile } from './components/UploadResumeModal';
 import ExtractedProfiles from './components/ExtractedProfiles';
 
 
@@ -13,7 +13,8 @@ function App() {
   const { user, loading } = useAuth();
   const [activeTab, setActiveTab] = useState('jobs');
 const [showUploadModal, setShowUploadModal] = useState(false);
-const [profiles, setProfiles] = useState<any[]>([]);
+// const [profiles, setProfiles] = useState<any[]>([]);
+const [profiles, setProfiles] = useState<Profile[]>([]);
 const [excelFile, setExcelFile] = useState<string | null>(null);
 
 
@@ -75,7 +76,7 @@ const handleExtractedProfile = (
         </div>
       )}
       {activeTab === 'extraction' && (
-  <ExtractedProfiles profiles={profiles}  excelFile={excelFile}/>
+  <ExtractedProfiles profiles={profiles}  excelFile={excelFile} setProfiles={setProfiles}/>
   
 )}
 
