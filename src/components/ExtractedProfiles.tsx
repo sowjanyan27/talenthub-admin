@@ -62,14 +62,14 @@
 // }
 import { useState } from "react";
 import type { Profile } from "./UploadResumeModal";
+import { Download } from "lucide-react";
 
 interface Props {
   profiles: Profile[];
   excelFile?: string | null;
 }
 
-export default function ExtractedProfiles({ profiles ,excelFile}: Props) {
-  console.log("📄 excelFile in ExtractedProfiles:", excelFile);
+export default function ExtractedProfiles({ profiles, excelFile }: Props) {
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
 
   if (!profiles.length) return null;
@@ -92,15 +92,13 @@ export default function ExtractedProfiles({ profiles ,excelFile}: Props) {
       ? "bg-blue-100 text-blue-700"
       : "bg-gray-100 text-gray-700";
 
-  /* ---------------- UI ---------------- */
+  /* ---------------- DOWNLOAD EXCEL ---------------- */
 
   const downloadExcel = async (fileName: string) => {
     try {
       const res = await fetch(
-        `http://127.0.0.1:9099/api/v1/profiles/download/${fileName}`,
-        { method: "GET" }
+        `http://127.0.0.1:9099/api/v1/profiles/download/${fileName}`
       );
-
       if (!res.ok) throw new Error("Download failed");
 
       const blob = await res.blob();
@@ -109,10 +107,8 @@ export default function ExtractedProfiles({ profiles ,excelFile}: Props) {
       const a = document.createElement("a");
       a.href = url;
       a.download = fileName;
-      document.body.appendChild(a);
       a.click();
 
-      a.remove();
       window.URL.revokeObjectURL(url);
     } catch (err) {
       console.error(err);
@@ -120,19 +116,23 @@ export default function ExtractedProfiles({ profiles ,excelFile}: Props) {
   };
 
   return (
-    <>
-     {excelFile && (
-  <div className="ml-64 px-6 mb-4">
-    <button
-      onClick={() => downloadExcel(excelFile)}
-      className="px-4 py-2 bg-green-600 text-white rounded-lg shadow hover:bg-green-700"
-    >
-      ⬇ Download Excel
-    </button>
-  </div>
-)}
-      <div className="ml-64 flex-1 p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-       
+    <div className="ml-64 min-h-screen bg-gray-50">
+
+      {/* 🔹 Top Action Bar */}
+      {excelFile && (
+        <div className="max-w-7xl mx-auto px-6 pt-6 flex justify-end">
+          <button
+            onClick={() => downloadExcel(excelFile)}
+            className="flex items-center gap-2 px-5 py-2 bg-[linear-gradient(to_bottom_right,#4ade80,#22c55e,#16a34a)] text-white font-medium rounded-lg shadow hover:bg-green-700 transition"
+          >
+            <Download size={18} /> Download Excel
+          </button>
+        </div>
+      )}
+
+      {/* 🔹 Profile Grid */}
+      <div className="max-w-7xl mx-auto px-6 py-8 grid gap-6 
+                      grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
 
         {profiles.map((p, i) => {
           const skillsArr = getSkillsArray(p.skills);
@@ -142,13 +142,13 @@ export default function ExtractedProfiles({ profiles ,excelFile}: Props) {
           return (
             <div
               key={i}
-              className="bg-white rounded-xl shadow-md p-5 border hover:shadow-lg transition"
+              className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition duration-300"
             >
-              <h3 className="font-bold text-lg">
+              <h3 className="font-semibold text-lg text-gray-800 truncate">
                 {p.name || p.file_name || "Unknown"}
               </h3>
 
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-gray-500 truncate">
                 {p.current_designation || "Unknown"} @{" "}
                 {p.current_company || "Unknown"}
               </p>
@@ -159,57 +159,53 @@ export default function ExtractedProfiles({ profiles ,excelFile}: Props) {
                 <p><b>Location:</b> {p.location || "N/A"}</p>
                 <p><b>Experience:</b> {p.total_experience || "N/A"}</p>
 
-                {/* Skills Preview */}
-                <p>
-                  <b>Skills:</b>{" "}
-                  {skillsArr.length === 0 ? (
-                    "N/A"
-                  ) : (
-                    <>
-                      {preview.join(" • ")}
-                      {remaining > 0 && (
-                        <span
-                          className="text-blue-600 cursor-pointer font-medium"
-                          onClick={() => setSelectedProfile(p)}
-                        >
-                          {" "}+{remaining} more
-                        </span>
-                      )}
-                    </>
-                  )}
-                </p>
+                {/* Skills */}
+                <div>
+                  <b>Skills:</b>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {preview.map((skill, idx) => (
+                      <span
+                        key={idx}
+                        className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-full"
+                      >
+                        {skill}
+                      </span>
+                    ))}
+                    {remaining > 0 && (
+                      <span
+                        className="text-xs text-blue-600 cursor-pointer font-medium"
+                        onClick={() => setSelectedProfile(p)}
+                      >
+                        +{remaining} more
+                      </span>
+                    )}
+                  </div>
+                </div>
 
                 <p><b>Education:</b> {p.education || "N/A"}</p>
               </div>
 
               {/* Match Score */}
               {p.match_score && (
-                <div className="mt-3 p-3 bg-blue-50 rounded-lg text-sm">
+                <div className="mt-4 p-3 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-sm">
                   <p><b>Match Score:</b> {p.match_score}%</p>
-                  <p className="text-green-600"><b>Matched:</b> {p.matched_skills || "N/A"}</p>
-                  <p className="text-red-600"><b>Missing:</b> {p.missing_skills || "N/A"}</p>
-                  <p className="text-gray-600 mt-1">{p.gap_summary || ""}</p>
+                  <p className="text-green-600"><b>Matched:</b> {p.matched_skills}</p>
+                  <p className="text-red-600"><b>Missing:</b> {p.missing_skills}</p>
+                  <p className="text-gray-600 mt-1">{p.gap_summary}</p>
                 </div>
-              )}
-
-              {/* Extraction Error */}
-              {p.extraction_status === "failed" && (
-                <p className="text-red-500 text-sm mt-2">
-                  {p.error_message || "Failed to extract profile"}
-                </p>
               )}
 
               {/* Buttons */}
               <div className="flex gap-2 mt-4">
                 <button
                   onClick={() => setSelectedProfile(p)}
-                  className="px-3 py-1 text-sm bg-blue-600 text-white rounded"
+                  className="flex-1 px-3 py-1 text-sm bg-blue-600 text-white rounded-lg"
                 >
                   View
                 </button>
                 <button
                   onClick={() => setSelectedProfile(p)}
-                  className="px-3 py-1 text-sm bg-gray-200 rounded"
+                  className="flex-1 px-3 py-1 text-sm bg-gray-200 rounded-lg"
                 >
                   Edit
                 </button>
@@ -219,11 +215,10 @@ export default function ExtractedProfiles({ profiles ,excelFile}: Props) {
         })}
       </div>
 
-      {/* ---------------- MODAL ---------------- */}
+      {/* 🔹 MODAL */}
       {selectedProfile && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white w-[650px] max-h-[90vh] overflow-y-auto rounded-xl p-6 relative shadow-xl">
-            
             <button
               className="absolute top-3 right-3 text-gray-500 text-lg"
               onClick={() => setSelectedProfile(null)}
@@ -236,7 +231,8 @@ export default function ExtractedProfiles({ profiles ,excelFile}: Props) {
             </h2>
 
             <p className="text-gray-600 mb-4">
-              {selectedProfile.current_designation} @ {selectedProfile.current_company}
+              {selectedProfile.current_designation} @{" "}
+              {selectedProfile.current_company}
             </p>
 
             <div className="space-y-2 text-sm">
@@ -245,7 +241,6 @@ export default function ExtractedProfiles({ profiles ,excelFile}: Props) {
               <p><b>Location:</b> {selectedProfile.location}</p>
               <p><b>Experience:</b> {selectedProfile.total_experience}</p>
 
-              {/* Full Skills */}
               <div>
                 <b>Skills:</b>
                 <div className="flex flex-wrap gap-2 mt-2">
@@ -265,6 +260,6 @@ export default function ExtractedProfiles({ profiles ,excelFile}: Props) {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
