@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft, Users, FileText, Calendar, TrendingUp, Plus, Eye, Mail, Phone, Briefcase, GraduationCap, Download, Upload, Check, X } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+// import { supabase } from '../lib/supabase';
 import AddCandidateModal from './AddCandidateModal';
-import UploadResumeModal from './UploadResumeModal';
-import { mockApplications, mockJobs } from '../mock/mockData';
+import UploadResumeModal, { type Profile, type ResumeProcess } from './UploadResumeModal';
 import CandidatePage from './CandidatePage';
 import { exportCandidatesExcel } from '../utils/exportExcel';
 import {
@@ -13,43 +12,7 @@ import {
   Circle
 } from 'lucide-react';
 import { mockTimeline } from '../mock/mockTimeline';
-
-
-interface Job {
-  id: string;
-  title: string;
-  department: string;
-  location: string;
-  status: string;
-  description?: string;
-  experience_required?: number;
-  created_at?: string;
-}
-
-
-interface Candidate {
-  id: string;
-  full_name: string;
-  email: string;
-  phone: string | null;
-  skills: string[] | null;
-  years_of_experience: number;
-  education: string | null;
-}
-
-interface Application {
-  id: string;
-  status: string;
-  match_score: number;
-  applied_at: string;
-  candidate: Candidate;
-}
-
-interface ResumeProcess {
-  file: string
-  status: 'uploading' | 'processing' | 'completed' | 'failed'
-  candidate_id?: string
-}
+import { useJobContext, type Application } from '../contexts/JobContext';
 
 interface JobDetailsProps {
   jobId: string;
@@ -63,7 +26,7 @@ export const TIMELINE_STEPS = [
   { stage: 'conference_scheduled', label: 'Interview' },
 ];
 const getStageStatus = (timeline: any[], stage: string) => {
-  const event = timeline?.find(t => t.stage === stage);
+  const event = timeline?.find((t: any) => t.stage === stage);
 
   if (!event) return 'not_started';
 
@@ -117,75 +80,53 @@ const StageIcon = ({ status }: { status: string }) => {
 
 
 export default function JobDetails({ jobId, onBack }: JobDetailsProps) {
-  const [job, setJob] = useState<Job | null>(null);
-  const [applications, setApplications] = useState<Application[]>([]);
+  const { jobs, applications: allApplications, addApplication, updateApplicationStatus } = useJobContext();
+
+  const job = jobs.find(j => j.id === jobId) || null;
+  const applications = allApplications.filter(app => app.jobId === jobId);
 
   const [activeTab, setActiveTab] = useState<'candidates' | 'details' | 'screening'>('candidates');
   const [showAddModal, setShowAddModal] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState<any>(null);
   const [view, setView] = useState<'job' | 'candidate'>('job');
-  // const [selectedApplication, setSelectedApplication] = useState<any>(null);
   const [resumeQueue, setResumeQueue] = useState<ResumeProcess[]>([])
 
-  useEffect(() => {
-    const selectedJob = mockJobs.find(j => j.id === jobId) || null;
-    setJob(selectedJob);
-
-    const apps = mockApplications.filter(app => app.jobId === jobId);
-    setApplications(apps);
-
-    setLoading(false);
-  }, [jobId]);
-
-  const loadJobDetails = async () => {
-    try {
-      const { data: jobData, error: jobError } = await supabase
-        .from('jobs')
-        .select('*')
-        .eq('id', jobId)
-        .single();
-
-      if (jobError) throw jobError;
-      setJob(jobData);
-
-      const { data: applicationsData, error: applicationsError } = await supabase
-        .from('applications')
-        .select(`
-          *,
-          candidate:candidates(*)
-        `)
-        .eq('job_id', jobId)
-        .order('applied_at', { ascending: false });
-
-      if (applicationsError) throw applicationsError;
-      setApplications(applicationsData as unknown as Application[]);
-    } catch (error) {
-      console.error('Error loading job details:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleStatusChange = async (applicationId: string, newStatus: string) => {
-    try {
-      const { error } = await supabase
-        .from('applications')
-        .update({ status: newStatus, updated_at: new Date().toISOString() })
-        .eq('id', applicationId);
+    updateApplicationStatus(applicationId, newStatus);
+  };
 
-      if (error) throw error;
-      loadJobDetails();
-    } catch (error) {
-      console.error('Error updating status:', error);
-    }
+  const handleExtractedProfiles = (profiles: Profile[]) => {
+    console.log("Extracted profiles received:", profiles);
+    profiles.forEach(p => {
+      const newApp: Application = {
+        id: `app-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        jobId: jobId,
+        status: 'screening',
+        match_score: p.match_score ? parseInt(p.match_score) : 0,
+        applied_at: new Date().toISOString(),
+        candidate: {
+          id: `cand-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          full_name: p.name || p.file_name,
+          email: p.email || "",
+          phone: p.phone_number || null,
+          years_of_experience: p.total_experience ? parseInt(p.total_experience) : 0,
+          education: p.education || null,
+          skills: p.skills ? (Array.isArray(p.skills) ? p.skills : (p.skills as string).split(',')) : null,
+          gap_summary: p.gap_summary,
+          matched_skills: p.matched_skills,
+          missing_skills: p.missing_skills
+        }
+      };
+      addApplication(newApp);
+    });
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'screening':
-      return 'bg-[linear-gradient(to_right,#FB923C,#EA580C)] text-white';
+        return 'bg-[linear-gradient(to_right,#FB923C,#EA580C)] text-white';
       case 'interview':
         return 'bg-[linear-gradient(to_right,#4ADE80,#10B981)] text-white';
       case 'qualified':
@@ -203,14 +144,6 @@ export default function JobDetails({ jobId, onBack }: JobDetailsProps) {
     interview: applications.filter((app) => app.status === 'interview').length,
     qualified: applications.filter((app) => app.match_score >= 80).length,
   };
-
-  if (loading) {
-    return (
-      <div className="flex-1 bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-500">Loading...</div>
-      </div>
-    );
-  }
 
   if (!job) {
     return (
@@ -263,7 +196,7 @@ export default function JobDetails({ jobId, onBack }: JobDetailsProps) {
           </button>
           <button
             onClick={() => exportCandidatesExcel(applications)}
-             className="flex items-center gap-2 px-4 py-2 bg-white/70 backdrop-blur-sm border border-white/40 
+            className="flex items-center gap-2 px-4 py-2 bg-white/70 backdrop-blur-sm border border-white/40 
              rounded-xl hover:shadow-lg transition-all duration-200 text-gray-700 font-medium"
           >
             <Download className="w-4 h-4" />
@@ -271,9 +204,7 @@ export default function JobDetails({ jobId, onBack }: JobDetailsProps) {
           </button>
         </div>
         <div className="mb-6">
-          
 
-          
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900 mb-2">{job.title}</h1>
@@ -349,12 +280,12 @@ export default function JobDetails({ jobId, onBack }: JobDetailsProps) {
 
           <div className="relative z-10">
             <div className="relative group bg-white/70 backdrop-blur-xl rounded-lg py-5 px-4 border border-white/40 shadow-md">
-            <div className="absolute top-0 left-0 w-full h-1 bg-[linear-gradient(to_bottom_right,#C084FC,#A855F7)]  rounded-t-lg"></div>
+              <div className="absolute top-0 left-0 w-full h-1 bg-[linear-gradient(to_bottom_right,#C084FC,#A855F7)]  rounded-t-lg"></div>
               <div className="flex items-center justify-between mb-1">
                 <h3 className="text-sm text-gray-600 font-medium">Screening</h3>
                 <div className='w-12 h-12 bg-[linear-gradient(to_bottom_right,#C084FC,#A855F7)] rounded-full 
                 flex items-center justify-center text-white shadow-lg'>
-                <FileText className="w-5 h-5 text-white" />
+                  <FileText className="w-5 h-5 text-white" />
                 </div>
               </div>
 
@@ -392,7 +323,7 @@ export default function JobDetails({ jobId, onBack }: JobDetailsProps) {
                 <h3 className="text-sm font-medium text-gray-600">In Interview</h3>
                 <div className='w-12 h-12 bg-[linear-gradient(to_bottom_right,#818CF8,#6366F1)] rounded-full 
                 flex items-center justify-center text-white shadow-lg'>
-                <Calendar className="w-5 h-5 text-white" />
+                  <Calendar className="w-5 h-5 text-white" />
                 </div>
               </div>
 
@@ -430,7 +361,7 @@ export default function JobDetails({ jobId, onBack }: JobDetailsProps) {
               <h3 className="text-sm font-medium text-gray-600">Qualified (80%+)</h3>
               <div className='w-12 h-12 bg-[linear-gradient(to_bottom_right,#22D3EE,#06B6D4)] rounded-full 
               flex items-center justify-center text-white shadow-lg'>
-              <TrendingUp className="w-5 h-5 text-white" />
+                <TrendingUp className="w-5 h-5 text-white" />
               </div>
             </div>
             <div className="text-3xl font-bold text-gray-900 mb-1">{stats.qualified}</div>
@@ -475,7 +406,7 @@ export default function JobDetails({ jobId, onBack }: JobDetailsProps) {
                     onClick={() => setShowUploadModal(true)}
                     className="border border-blue-600 text-blue-600 px-4 py-2 rounded-lg font-medium hover:bg-blue-50 transition-colors flex items-center text-sm"
                   >
-                    <Upload className="mr-2" size={18}/>
+                    <Upload className="mr-2" size={18} />
                     Upload Resume
                   </button>
 
@@ -492,13 +423,13 @@ export default function JobDetails({ jobId, onBack }: JobDetailsProps) {
             </div>
           </div>
 
-          
+
           {activeTab === 'candidates' && (
             <div className="p-5">
               <p className="text-sm text-gray-600 mb-5">
                 Manage candidates who have applied or been added to this position
               </p>
-                {/* ================= LIVE RESUME PROCESSING ================= */}
+              {/* ================= LIVE RESUME PROCESSING ================= */}
               {resumeQueue.length > 0 && (
                 <div className="mb-6 bg-blue-50 border border-blue-200 rounded-xl p-4">
                   <h3 className="text-sm font-semibold text-blue-800 mb-3">
@@ -515,15 +446,14 @@ export default function JobDetails({ jobId, onBack }: JobDetailsProps) {
                           </span>
 
                           <span
-                            className={`text-xs px-2 py-1 rounded-full font-medium ${
-                              item.status === "uploading"
-                                ? "bg-blue-100 text-blue-700"
-                                : item.status === "processing"
+                            className={`text-xs px-2 py-1 rounded-full font-medium ${item.status === "uploading"
+                              ? "bg-blue-100 text-blue-700"
+                              : item.status === "processing"
                                 ? "bg-yellow-100 text-yellow-700"
                                 : item.status === "completed"
-                                ? "bg-green-100 text-green-700"
-                                : "bg-red-100 text-red-700"
-                            }`}
+                                  ? "bg-green-100 text-green-700"
+                                  : "bg-red-100 text-red-700"
+                              }`}
                           >
                             {item.status}
                           </span>
@@ -538,15 +468,14 @@ export default function JobDetails({ jobId, onBack }: JobDetailsProps) {
                         {/* Progress Bar */}
                         <div className="w-full bg-gray-200 h-2 rounded mt-2 overflow-hidden">
                           <div
-                            className={`h-2 transition-all duration-500 ${
-                              item.status === "completed"
-                                ? "bg-green-500 w-full"
-                                : item.status === "processing"
+                            className={`h-2 transition-all duration-500 ${item.status === "completed"
+                              ? "bg-green-500 w-full"
+                              : item.status === "processing"
                                 ? "bg-yellow-500 w-2/3"
                                 : item.status === "uploading"
-                                ? "bg-blue-500 w-1/3"
-                                : "bg-red-500 w-full"
-                            }`}
+                                  ? "bg-blue-500 w-1/3"
+                                  : "bg-red-500 w-full"
+                              }`}
                           />
                         </div>
                       </div>
@@ -569,151 +498,135 @@ export default function JobDetails({ jobId, onBack }: JobDetailsProps) {
                     >
                       <div className={`w-full h-2 rounded-t-lg ${getStatusColor(application.status)}`} />
                       <div className='p-6'>
-                      {/* ================= HEADER ================= */}
-                      <div className="flex items-start justify-between mb-4">
-                        <div>
-                          <h3 className="text-lg font-bold text-gray-900 mb-1">
-                            {application.candidate.full_name}
-                          </h3>
-                          <p className="text-sm text-gray-500">
-                            Applied{" "}
-                            {new Date(application.applied_at).toLocaleDateString()}
-                          </p>
-                        </div>
+                        {/* ================= HEADER ================= */}
+                        <div className="flex items-start justify-between mb-4">
+                          <div>
+                            <h3 className="text-lg font-bold text-gray-900 mb-1">
+                              {application.candidate.full_name}
+                            </h3>
+                            <p className="text-sm text-gray-500">
+                              Applied{" "}
+                              {new Date(application.applied_at).toLocaleDateString()}
+                            </p>
+                          </div>
 
-                        <span
-                          className={`px-3 py-1.5 text-xs font-semibold rounded-full shadow-md ${getStatusColor(
-                            application.status
-                          )}`}
-                        >
-                          {application.status}
-                        </span>
-                      </div>
-
-                      {/* ================= MATCH SCORE ================= */}
-                      <div className="mb-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-semibold text-gray-700">
-                            Match Score
-                          </span>
-                          <span className="text-sm font-bold text-gray-900">
-                            {application.match_score}%
-                          </span>
-                        </div>
-
-                        <div className="w-full bg-gray-200 rounded-full h-2.5">
-                          <div
-                            className="bg-blue-600 h-2.5 rounded-full transition-all"
-                            style={{ width: `${application.match_score}%` }}
-                          />
-                        </div>
-                      </div>
-
-                      {/* ================= VERTICAL TIMELINE ================= */}
-                      <div className="mt-4 border-gray-200 space-y-4">
-                        {TIMELINE_STEPS.map((step) => {
-                          const status = getStageStatus(
-                            mockTimeline[application.id] || [],
-                            step.stage
-                          );
-
-                          return (
-                            <div
-                              key={step.stage}
-                              className="flex items-center gap-3"
-                            >
-                              <div className="">
-                                <StageIcon status={status} />
-                              </div>
-
-                              <div>
-                                <p className="text-sm font-medium text-gray-700">
-                                  {step.label}
-                                </p>
-                              </div>
-                              <div className='ml-auto'>
-                                <p className="text-xs text-gray-500 capitalize">
-                                  {status.replace("_", " ")}
-                                </p>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      {/* ================= SKILLS ================= */}
-                      {/* {applications.candidate.skills?.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-4">
-                {application.candidate.skills.slice(0, 3).map((skill, index) => (
-                  <span
-                    key={index}
-                    className="px-3 py-1 bg-gray-100 text-gray-700 
-                               rounded-full text-xs font-medium"
-                  >
-                    {skill}
-                  </span>
-                ))}
-                {application.candidate.skills.length > 3 && (
-                  <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">
-                    +{application.candidate.skills.length - 3}
-                  </span>
-                )}
-              </div>
-            )} */}
-                      {application.candidate.skills && application.candidate.skills.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mt-4 mb-4">
-                          {application.candidate.skills.slice(0, 3).map((skill, index) => (
-                            <span
-                              key={index}
-                              className="px-3 py-1 bg-[linear-gradient(to_right,#EFF6FF,#EEF2FF)] text-blue-700 text-xs font-medium rounded-lg border border-blue-100"
-                            >
-                              {skill}
-                            </span>
-                          ))}
-                          {application.candidate.skills.length > 3 && (
-                            <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium">
-                              +{application.candidate.skills.length - 3}
-                            </span>
-                          )}
-                        </div>
-                      )}
-
-                      {/* ================= ACTIONS ================= */}
-                      <div className="flex gap-2 mt-4">
-                        <div className="relative block w-full">
-                          <select value={application.status}
-                            onChange={(e) =>
-                              handleStatusChange(application.id, e.target.value)
-                            }
-                            className="flex-1 w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 
-                            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none"
+                          <span
+                            className={`px-3 py-1.5 text-xs font-semibold rounded-full shadow-md ${getStatusColor(
+                              application.status
+                            )}`}
                           >
-                            <option value="screening">Screening</option>
-                            <option value="interview">Interview</option>
-                            <option value="qualified">Qualified</option>
-                            <option value="rejected">Rejected</option>
-                          </select>
-                          <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-gray-400">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                            </svg>
+                            {application.status}
+                          </span>
+                        </div>
+
+                        {/* ================= MATCH SCORE ================= */}
+                        <div className="mb-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-semibold text-gray-700">
+                              Match Score
+                            </span>
+                            <span className="text-sm font-bold text-gray-900">
+                              {application.match_score}%
+                            </span>
+                          </div>
+
+                          <div className="w-full bg-gray-200 rounded-full h-2.5">
+                            <div
+                              className="bg-blue-600 h-2.5 rounded-full transition-all"
+                              style={{ width: `${application.match_score}%` }}
+                            />
                           </div>
                         </div>
 
-                        <button
-                          onClick={() => {
-                            setSelectedApplication(application);
-                            setView("candidate");
-                          }}
-                          className="p-2.5 bg-[linear-gradient(to_right,#EFF6FF,#EEF2FF)] text-blue-600 rounded-xl hover:shadow-md transition-all duration-200 border border-blue-100"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                      </div>
+                        {/* ================= VERTICAL TIMELINE ================= */}
+                        {/* Note: using mockTimeline for now, context should ideally provide this or we map it */}
+                        <div className="mt-4 border-gray-200 space-y-4">
+                          {TIMELINE_STEPS.map((step) => {
+                            const status = getStageStatus(
+                              application.timeline || mockTimeline[application.id] || [], // Use application timeline if available (JobContext lacks it for upload, so maybe default to empty or pending)
+                              step.stage
+                            );
 
-                      {/* ================= HOVER DETAILS ================= */}
-                      <div
-                        className="
+                            return (
+                              <div
+                                key={step.stage}
+                                className="flex items-center gap-3"
+                              >
+                                <div className="">
+                                  <StageIcon status={status} />
+                                </div>
+
+                                <div>
+                                  <p className="text-sm font-medium text-gray-700">
+                                    {step.label}
+                                  </p>
+                                </div>
+                                <div className='ml-auto'>
+                                  <p className="text-xs text-gray-500 capitalize">
+                                    {status.replace("_", " ")}
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {/* ================= SKILLS ================= */}
+
+                        {application.candidate.skills && application.candidate.skills.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mt-4 mb-4">
+                            {application.candidate.skills.slice(0, 3).map((skill, index) => (
+                              <span
+                                key={index}
+                                className="px-3 py-1 bg-[linear-gradient(to_right,#EFF6FF,#EEF2FF)] text-blue-700 text-xs font-medium rounded-lg border border-blue-100"
+                              >
+                                {skill}
+                              </span>
+                            ))}
+                            {application.candidate.skills.length > 3 && (
+                              <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium">
+                                +{application.candidate.skills.length - 3}
+                              </span>
+                            )}
+                          </div>
+                        )}
+
+                        {/* ================= ACTIONS ================= */}
+                        <div className="flex gap-2 mt-4">
+                          <div className="relative block w-full">
+                            <select value={application.status}
+                              onChange={(e) =>
+                                handleStatusChange(application.id, e.target.value)
+                              }
+                              className="flex-1 w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 
+                            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none"
+                            >
+                              <option value="screening">Screening</option>
+                              <option value="interview">Interview</option>
+                              <option value="qualified">Qualified</option>
+                              <option value="rejected">Rejected</option>
+                            </select>
+                            <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-gray-400">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                              </svg>
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={() => {
+                              setSelectedApplication(application);
+                              setView("candidate");
+                            }}
+                            className="p-2.5 bg-[linear-gradient(to_right,#EFF6FF,#EEF2FF)] text-blue-600 rounded-xl hover:shadow-md transition-all duration-200 border border-blue-100"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        {/* ================= HOVER DETAILS ================= */}
+                        <div
+                          className="
                 absolute left-0 right-0 bottom-20 mx-4
                 bg-white border border-gray-200 rounded-lg shadow-lg
                 p-4 text-sm text-gray-700
@@ -722,33 +635,33 @@ export default function JobDetails({ jobId, onBack }: JobDetailsProps) {
                 transition-all duration-200
                 pointer-events-none z-10
               "
-                      >
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <Mail className="w-4 h-4 text-gray-500" />
-                            {application.candidate.email}
-                          </div>
-
-                          {application.candidate.phone && (
+                        >
+                          <div className="space-y-2">
                             <div className="flex items-center gap-2">
-                              <Phone className="w-4 h-4 text-gray-500" />
-                              {application.candidate.phone}
+                              <Mail className="w-4 h-4 text-gray-500" />
+                              {application.candidate.email}
                             </div>
-                          )}
 
-                          <div className="flex items-center gap-2">
-                            <Briefcase className="w-4 h-4 text-gray-500" />
-                            {application.candidate.years_of_experience} years experience
-                          </div>
+                            {application.candidate.phone && (
+                              <div className="flex items-center gap-2">
+                                <Phone className="w-4 h-4 text-gray-500" />
+                                {application.candidate.phone}
+                              </div>
+                            )}
 
-                          {application.candidate.education && (
                             <div className="flex items-center gap-2">
-                              <GraduationCap className="w-4 h-4 text-gray-500" />
-                              {application.candidate.education}
+                              <Briefcase className="w-4 h-4 text-gray-500" />
+                              {application.candidate.years_of_experience} years experience
                             </div>
-                          )}
+
+                            {application.candidate.education && (
+                              <div className="flex items-center gap-2">
+                                <GraduationCap className="w-4 h-4 text-gray-500" />
+                                {application.candidate.education}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
                       </div>
                     </div>
                   ))}
@@ -843,42 +756,22 @@ export default function JobDetails({ jobId, onBack }: JobDetailsProps) {
           onClose={() => setShowAddModal(false)}
           onSuccess={() => {
             setShowAddModal(false);
-            loadJobDetails();
           }}
         />
       )}
 
-      {/* {showUploadModal && (
+      {showUploadModal && (
         <UploadResumeModal
           jobId={jobId}
+          jobDescription={job.description || ""}
           onClose={() => setShowUploadModal(false)}
           onSuccess={() => {
-            setShowUploadModal(false);
-            loadJobDetails();
+            setShowUploadModal(false)
           }}
+          onUploadProgress={(data) => setResumeQueue(data)}
+          onExtracted={handleExtractedProfiles}
         />
-      )} */}
-
-      {/* {selectedApplication && (
-        <CandidateDetailsModal
-          application={selectedApplication}
-          onClose={() => setSelectedApplication(null)}
-        />
-      )} */}
-
-{showUploadModal && (
-  <UploadResumeModal
-    jobId={jobId}
-    onClose={() => setShowUploadModal(false)}
-    onSuccess={() => {
-      setShowUploadModal(false)
-      loadJobDetails()
-    }}
-    onUploadProgress={(data) => setResumeQueue(data)}   // ADD
-  />
-)}
-
-
+      )}
 
     </div>
   );

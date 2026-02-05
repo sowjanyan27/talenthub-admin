@@ -272,13 +272,13 @@
 //   );
 // }
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Search, Plus, MapPin, DollarSign, Users, Eye, Trash2 } from 'lucide-react';
 
 import PostJobModal from '../components/PostJobModal';
 import JobDetails from '../components/JobDetails';
 
-import { mockJobs, mockApplications } from '../mock/mockData';
+import { useJobContext } from '../contexts/JobContext';
 import { motion, AnimatePresence } from "framer-motion";
 
 /* ================= TYPES ================= */
@@ -291,7 +291,7 @@ interface Job {
   description: string | null;
   status: string;
   created_at: string;
-    min_salary?: number | null;
+  min_salary?: number | null;
   max_salary?: number | null;
 }
 
@@ -302,39 +302,27 @@ interface JobWithApplications extends Job {
 /* ================= COMPONENT ================= */
 
 export default function Jobs() {
-  const [jobs, setJobs] = useState<JobWithApplications[]>([]);
+  const { jobs: contextJobs, applications, deleteJob } = useJobContext();
+
   const [filteredJobs, setFilteredJobs] = useState<JobWithApplications[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showPostModal, setShowPostModal] = useState(false);
   const [selectedJob, setSelectedJob] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  /* ================= LOAD MOCK DATA ================= */
+  // Calculate applicant counts
+  const jobs = useMemo(() => {
+    return contextJobs.map(job => ({
+      ...job,
+      applicant_count: applications.filter(app => app.jobId === job.id).length
+    }));
+  }, [contextJobs, applications]);
 
-  useEffect(() => {
-    loadJobs();
-  }, []);
+  /* ================= FILTER ================= */
 
   useEffect(() => {
     filterJobs();
   }, [searchQuery, statusFilter, jobs]);
-
-  const loadJobs = () => {
-    const jobsWithCounts: JobWithApplications[] = mockJobs.map(job => {
-      const applicantCount = mockApplications.filter(
-        app => app.jobId === job.id
-      ).length;
-
-      return {
-        ...job,
-        applicant_count: applicantCount,
-      };
-    });
-
-    setJobs(jobsWithCounts);
-    setLoading(false);
-  };
 
   useEffect(() => {
     if (showPostModal) {
@@ -348,7 +336,6 @@ export default function Jobs() {
     };
   }, [showPostModal]);
 
-  /* ================= FILTER ================= */
 
   const filterJobs = () => {
     let filtered = [...jobs];
@@ -372,8 +359,7 @@ export default function Jobs() {
 
   const handleDeleteJob = (jobId: string) => {
     if (!confirm('Are you sure you want to delete this job?')) return;
-
-    setJobs(prev => prev.filter(job => job.id !== jobId));
+    deleteJob(jobId);
   };
 
   /* ================= DETAILS ================= */
@@ -446,9 +432,7 @@ export default function Jobs() {
         </div>
 
         {/* LIST */}
-        {loading ? (
-          <div className="text-center py-12">Loading jobs...</div>
-        ) : filteredJobs.length === 0 ? (
+        {filteredJobs.length === 0 ? (
           <div className="text-center py-12">No jobs found</div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -461,11 +445,10 @@ export default function Jobs() {
                     <h3 className="text-xl font-bold text-gray-900 mb-1">{job.title}</h3>
                     <p className="text-sm text-gray-500 font-medium">{job.department}</p>
                   </div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${
-                    job.status === 'active'
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                      : 'bg-rose-50 text-rose-700 border-rose-200'
-                  }`}>
+                  <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${job.status === 'active'
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    : 'bg-rose-50 text-rose-700 border-rose-200'
+                    }`}>
                     {job.status}
                   </span>
                 </div>
@@ -483,7 +466,7 @@ export default function Jobs() {
                   {job.min_salary && job.max_salary && (
                     <div className="flex items-center gap-1.5">
                       <DollarSign className="w-4 h-4" />
-                     <span>₹{job.min_salary} - ₹{job.max_salary}</span>
+                      <span>₹{job.min_salary} - ₹{job.max_salary}</span>
                     </div>
                   )}
 
@@ -521,14 +504,14 @@ export default function Jobs() {
           </div>
         )}
       </div>
-      
+
       <AnimatePresence mode="wait">
-      {showPostModal && (
-        <PostJobModal
-          onClose={() => setShowPostModal(false)}
-          onSuccess={() => setShowPostModal(false)}
-        />
-      )}
+        {showPostModal && (
+          <PostJobModal
+            onClose={() => setShowPostModal(false)}
+            onSuccess={() => setShowPostModal(false)}
+          />
+        )}
       </AnimatePresence>
     </div>
   );

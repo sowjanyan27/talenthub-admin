@@ -64,6 +64,7 @@ export interface Profile {
 interface UploadResumeModalProps {
   jobId: string;
   jobTitle?: string;
+  jobDescription?: string;
   onClose: () => void;
   onSuccess: () => void;
   onUploadProgress: (data: ResumeProcess[]) => void;
@@ -77,6 +78,7 @@ type Status = "waiting" | "uploading" | "processing" | "completed" | "error";
 
 export default function UploadResumeModal({
   jobTitle,
+  jobDescription = "",
   onClose,
   onSuccess,
   onUploadProgress,
@@ -148,9 +150,10 @@ export default function UploadResumeModal({
           recursive: false,
           output_filename: "batch_output.json",
           max_concurrent: 2,
-          enable_gap_analysis: false,
-          job_description: "",
+          enable_gap_analysis: !!jobDescription,
+          job_description: jobDescription,
         };
+        console.log(payload,'payload')
 
         const res = await fetchWithRetry(url, {
           method: "POST",
@@ -159,6 +162,7 @@ export default function UploadResumeModal({
         });
 
         const data = await res.json();
+        console.log(data,'++++++++++response data+++++++++++')
 
         if (!res.ok || !data.success) {
           setFileStatus({ [folderName]: "error" });
@@ -171,13 +175,13 @@ export default function UploadResumeModal({
         const excelFileName = data.excel_path
           ? data.excel_path.split("\\").pop()
           : null;
-          console.log(data.excel_path,'excel_path')
-          console.log(excelFileName,'excelfilename')
+        console.log(data.excel_path, 'excel_path')
+        console.log(excelFileName, 'excelfilename')
         // Flatten in case API returns nested arrays
         const profiles: Profile[] = Array.isArray(data.profiles[0])
           ? data.profiles.flat()
           : data.profiles;
-      
+
         onExtracted(profiles || [], excelFileName);
         setFileStatus({ [folderName]: "completed" });
         setUploadProgress({ [folderName]: 100 });

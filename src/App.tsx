@@ -7,32 +7,27 @@ import { Toaster } from 'react-hot-toast';
 import TaskNotificationsPaging from './pages/Dashboard';
 import UploadResumeModal, { type Profile } from './components/UploadResumeModal';
 import ExtractedProfiles from './components/ExtractedProfiles';
+import { JobProvider } from './contexts/JobContext';
 
 
 function App() {
   const { user, loading } = useAuth();
-  const [activeTab, setActiveTab] = useState('jobs');
-const [showUploadModal, setShowUploadModal] = useState(false);
-// const [profiles, setProfiles] = useState<any[]>([]);
-const [profiles, setProfiles] = useState<Profile[]>([]);
-const [excelFile, setExcelFile] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [excelFile, setExcelFile] = useState<string | null>(null);
 
 
-// const handleExtractedProfile = (newProfiles: any[]) => {
-//   setProfiles(prev => [...prev, ...newProfiles]); // 🔥 SPREAD, not push
-//   setActiveTab('extraction');
-// };
+  const handleExtractedProfile = (
+    newProfiles: any[],
+    excel?: string | null
+  ) => {
+    console.log("📄 EXCEL RECEIVED IN APP:", excel);
 
-const handleExtractedProfile = (
-  newProfiles: any[],
-  excel?: string | null
-) => {
-  console.log("📄 EXCEL RECEIVED IN APP:", excel);
-
-  setProfiles(prev => [...prev, ...newProfiles]);
-  setExcelFile(excel ?? null);
-  setActiveTab("extraction");
-};
+    setProfiles(prev => [...prev, ...newProfiles]);
+    setExcelFile(excel ?? null);
+    setActiveTab("extraction");
+  };
 
 
 
@@ -49,49 +44,46 @@ const handleExtractedProfile = (
   }
 
   return (
-    <div className="flex min-h-screen bg-[linear-gradient(to_bottom_right,#F9FAFB,#F9FAFB,#EFF6FF)]">
-      <Toaster position="top-right" />
-      <Sidebar activeTab={activeTab} onTabChange={setActiveTab} onOpenKeyExtraction={() => setShowUploadModal(true)} />
-      {/* {activeTab === 'jobs' && <Jobs />} */}
-    
-      {/* {activeTab === 'dashboard' &&< (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-gray-500">Dashboard - Coming soon</div>
-        </div>
-      )} */}
-      {activeTab === 'dashboard'}
-      {activeTab === 'candidates' && (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-gray-500">Candidates - Coming soon</div>
-        </div>
-      )}
-      {activeTab === 'interviews' && (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-gray-500">Interviews - Coming soon</div>
-        </div>
-      )}
-      {activeTab === 'roles' && (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-gray-500">Roles & Permissions - Coming soon</div>
-        </div>
-      )}
-      {activeTab === 'extraction' && (
-  <ExtractedProfiles profiles={profiles}  excelFile={excelFile} setProfiles={setProfiles}/>
-  
-)}
+    <JobProvider>
+      <div className="flex min-h-screen bg-[linear-gradient(to_bottom_right,#F9FAFB,#F9FAFB,#EFF6FF)]">
+        <Toaster position="top-right" />
+        <Sidebar activeTab={activeTab} onTabChange={setActiveTab} onOpenKeyExtraction={() => setShowUploadModal(true)} />
+        {activeTab === 'jobs' && <Jobs />}
 
-      {showUploadModal && (
-  <UploadResumeModal
-    jobId=""
-    onClose={() => setShowUploadModal(false)}
-    onSuccess={() => setShowUploadModal(false)}
-    onUploadProgress={() => {}}
-    onExtracted={handleExtractedProfile}
+        {activeTab === 'dashboard'}
+        {activeTab === 'candidates' && (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-gray-500">Candidates - Coming soon</div>
+          </div>
+        )}
+        {activeTab === 'interviews' && (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-gray-500">Interviews - Coming soon</div>
+          </div>
+        )}
+        {activeTab === 'roles' && (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-gray-500">Roles & Permissions - Coming soon</div>
+          </div>
+        )}
+        {activeTab === 'extraction' && (
+          <ExtractedProfiles profiles={profiles} excelFile={excelFile} setProfiles={setProfiles} />
 
-  />
-)}
+        )}
 
-    </div>
+        {showUploadModal && (
+          <UploadResumeModal
+            jobId=""
+            onClose={() => setShowUploadModal(false)}
+            onSuccess={() => setShowUploadModal(false)}
+            onUploadProgress={() => { }}
+            onExtracted={handleExtractedProfile}
+
+          />
+        )}
+
+      </div>
+    </JobProvider>
   );
 }
 
