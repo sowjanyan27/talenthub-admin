@@ -1,15 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { ArrowLeft, Users, FileText, Calendar, TrendingUp, Plus, Eye, Mail, Phone, Briefcase, GraduationCap, Download, Upload, Check, X } from 'lucide-react';
 // import { supabase } from '../lib/supabase';
 import AddCandidateModal from './AddCandidateModal';
 import UploadResumeModal, { type Profile, type ResumeProcess } from './UploadResumeModal';
 import CandidatePage from './CandidatePage';
+import ExtractedProfiles from './ExtractedProfiles';
 import { exportCandidatesExcel } from '../utils/exportExcel';
 import {
-  CheckCircle,
   Clock,
-  XCircle,
-  Circle
 } from 'lucide-react';
 import { mockTimeline } from '../mock/mockTimeline';
 import { useJobContext, type Application } from '../contexts/JobContext';
@@ -17,6 +15,7 @@ import { useJobContext, type Application } from '../contexts/JobContext';
 interface JobDetailsProps {
   jobId: string;
   onBack: () => void;
+  onExtracted?: (profiles: Profile[], excel?: string | null) => void;
 }
 export const TIMELINE_STEPS = [
   { stage: 'profile_uploaded', label: 'Profile' },
@@ -79,7 +78,7 @@ const StageIcon = ({ status }: { status: string }) => {
 };
 
 
-export default function JobDetails({ jobId, onBack }: JobDetailsProps) {
+export default function JobDetails({ jobId, onBack, onExtracted }: JobDetailsProps) {
   const { jobs, applications: allApplications, addApplication, updateApplicationStatus } = useJobContext();
 
   const job = jobs.find(j => j.id === jobId) || null;
@@ -97,8 +96,15 @@ export default function JobDetails({ jobId, onBack }: JobDetailsProps) {
     updateApplicationStatus(applicationId, newStatus);
   };
 
-  const handleExtractedProfiles = (profiles: Profile[]) => {
+  const handleExtractedProfiles = (profiles: Profile[], excel?: string | null) => {
     console.log("Extracted profiles received:", profiles);
+
+    // 1. Pass data UP to App.tsx (so it switches to 'extraction' tab)
+    if (onExtracted) {
+      onExtracted(profiles, excel);
+    }
+
+    // 2. Also keep existing logic (add as applications)
     profiles.forEach(p => {
       const newApp: Application = {
         id: `app-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -196,7 +202,7 @@ export default function JobDetails({ jobId, onBack }: JobDetailsProps) {
           </button>
           <button
             onClick={() => exportCandidatesExcel(applications)}
-            className="flex items-center gap-2 px-4 py-2 bg-white/70 backdrop-blur-sm border border-white/40 
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white  backdrop-blur-sm border border-white/40 
              rounded-xl hover:shadow-lg transition-all duration-200 text-gray-700 font-medium"
           >
             <Download className="w-4 h-4" />
@@ -409,14 +415,14 @@ export default function JobDetails({ jobId, onBack }: JobDetailsProps) {
                     <Upload className="mr-2" size={18} />
                     Upload Resume
                   </button>
-
+                  {/* 
                   <button
                     onClick={() => setShowAddModal(true)}
                     className="bg-[linear-gradient(to_right,#3B82F6,#2563EB)] text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center text-sm"
                   >
                     <Plus className="mr-2" size={18} />
                     Add Candidate
-                  </button>
+                  </button> */}
                 </div>
               )}
 
@@ -426,9 +432,9 @@ export default function JobDetails({ jobId, onBack }: JobDetailsProps) {
 
           {activeTab === 'candidates' && (
             <div className="p-5">
-              <p className="text-sm text-gray-600 mb-5">
+              {/* <p className="text-sm text-gray-600 mb-5">
                 Manage candidates who have applied or been added to this position
-              </p>
+              </p> */}
               {/* ================= LIVE RESUME PROCESSING ================= */}
               {resumeQueue.length > 0 && (
                 <div className="mb-6 bg-blue-50 border border-blue-200 rounded-xl p-4">
@@ -489,183 +495,35 @@ export default function JobDetails({ jobId, onBack }: JobDetailsProps) {
                   <div className="text-gray-500">No candidates yet</div>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {applications.map((application) => (
-                    <div
-                      key={application.id}
-                      className="relative group border border-gray-200 rounded-xl 
-                       bg-white hover:shadow-md transition-shadow"
-                    >
-                      <div className={`w-full h-2 rounded-t-lg ${getStatusColor(application.status)}`} />
-                      <div className='p-6'>
-                        {/* ================= HEADER ================= */}
-                        <div className="flex items-start justify-between mb-4">
-                          <div>
-                            <h3 className="text-lg font-bold text-gray-900 mb-1">
-                              {application.candidate.full_name}
-                            </h3>
-                            <p className="text-sm text-gray-500">
-                              Applied{" "}
-                              {new Date(application.applied_at).toLocaleDateString()}
-                            </p>
-                          </div>
-
-                          <span
-                            className={`px-3 py-1.5 text-xs font-semibold rounded-full shadow-md ${getStatusColor(
-                              application.status
-                            )}`}
-                          >
-                            {application.status}
-                          </span>
-                        </div>
-
-                        {/* ================= MATCH SCORE ================= */}
-                        <div className="mb-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-semibold text-gray-700">
-                              Match Score
-                            </span>
-                            <span className="text-sm font-bold text-gray-900">
-                              {application.match_score}%
-                            </span>
-                          </div>
-
-                          <div className="w-full bg-gray-200 rounded-full h-2.5">
-                            <div
-                              className="bg-blue-600 h-2.5 rounded-full transition-all"
-                              style={{ width: `${application.match_score}%` }}
-                            />
-                          </div>
-                        </div>
-
-                        {/* ================= VERTICAL TIMELINE ================= */}
-                        {/* Note: using mockTimeline for now, context should ideally provide this or we map it */}
-                        <div className="mt-4 border-gray-200 space-y-4">
-                          {TIMELINE_STEPS.map((step) => {
-                            const status = getStageStatus(
-                              application.timeline || mockTimeline[application.id] || [], // Use application timeline if available (JobContext lacks it for upload, so maybe default to empty or pending)
-                              step.stage
-                            );
-
-                            return (
-                              <div
-                                key={step.stage}
-                                className="flex items-center gap-3"
-                              >
-                                <div className="">
-                                  <StageIcon status={status} />
-                                </div>
-
-                                <div>
-                                  <p className="text-sm font-medium text-gray-700">
-                                    {step.label}
-                                  </p>
-                                </div>
-                                <div className='ml-auto'>
-                                  <p className="text-xs text-gray-500 capitalize">
-                                    {status.replace("_", " ")}
-                                  </p>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-
-                        {/* ================= SKILLS ================= */}
-
-                        {application.candidate.skills && application.candidate.skills.length > 0 && (
-                          <div className="flex flex-wrap gap-2 mt-4 mb-4">
-                            {application.candidate.skills.slice(0, 3).map((skill, index) => (
-                              <span
-                                key={index}
-                                className="px-3 py-1 bg-[linear-gradient(to_right,#EFF6FF,#EEF2FF)] text-blue-700 text-xs font-medium rounded-lg border border-blue-100"
-                              >
-                                {skill}
-                              </span>
-                            ))}
-                            {application.candidate.skills.length > 3 && (
-                              <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium">
-                                +{application.candidate.skills.length - 3}
-                              </span>
-                            )}
-                          </div>
-                        )}
-
-                        {/* ================= ACTIONS ================= */}
-                        <div className="flex gap-2 mt-4">
-                          <div className="relative block w-full">
-                            <select value={application.status}
-                              onChange={(e) =>
-                                handleStatusChange(application.id, e.target.value)
-                              }
-                              className="flex-1 w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 
-                            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none"
-                            >
-                              <option value="screening">Screening</option>
-                              <option value="interview">Interview</option>
-                              <option value="qualified">Qualified</option>
-                              <option value="rejected">Rejected</option>
-                            </select>
-                            <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-gray-400">
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                              </svg>
-                            </div>
-                          </div>
-
-                          <button
-                            onClick={() => {
-                              setSelectedApplication(application);
-                              setView("candidate");
-                            }}
-                            className="p-2.5 bg-[linear-gradient(to_right,#EFF6FF,#EEF2FF)] text-blue-600 rounded-xl hover:shadow-md transition-all duration-200 border border-blue-100"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                        </div>
-
-                        {/* ================= HOVER DETAILS ================= */}
-                        <div
-                          className="
-                absolute left-0 right-0 bottom-20 mx-4
-                bg-white border border-gray-200 rounded-lg shadow-lg
-                p-4 text-sm text-gray-700
-                opacity-0 translate-y-2
-                group-hover:opacity-100 group-hover:translate-y-0
-                transition-all duration-200
-                pointer-events-none z-10
-              "
-                        >
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2">
-                              <Mail className="w-4 h-4 text-gray-500" />
-                              {application.candidate.email}
-                            </div>
-
-                            {application.candidate.phone && (
-                              <div className="flex items-center gap-2">
-                                <Phone className="w-4 h-4 text-gray-500" />
-                                {application.candidate.phone}
-                              </div>
-                            )}
-
-                            <div className="flex items-center gap-2">
-                              <Briefcase className="w-4 h-4 text-gray-500" />
-                              {application.candidate.years_of_experience} years experience
-                            </div>
-
-                            {application.candidate.education && (
-                              <div className="flex items-center gap-2">
-                                <GraduationCap className="w-4 h-4 text-gray-500" />
-                                {application.candidate.education}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <ExtractedProfiles
+                  profiles={applications.map(app => ({
+                    file_name: app.candidate.full_name,
+                    name: app.candidate.full_name,
+                    email: app.candidate.email,
+                    phone_number: app.candidate.phone || "",
+                    current_company: "", // Not directly available in Application
+                    current_designation: "", // Not directly available in Application
+                    total_experience: app.candidate.years_of_experience.toString(),
+                    skills: app.candidate.skills?.join(",") || "",
+                    education: app.candidate.education || "",
+                    location: "", // Not directly available in Application
+                    extraction_status: "completed",
+                    match_score: app.match_score.toString(),
+                    gap_summary: app.candidate.gap_summary,
+                    matched_skills: app.candidate.matched_skills,
+                    missing_skills: app.candidate.missing_skills,
+                    status: app.status as any
+                  }))}
+                  setProfiles={() => { }} // Read-only in this context for now
+                  onView={(p) => {
+                    const app = applications.find(a => a.candidate.email === p.email);
+                    if (app) {
+                      setSelectedApplication(app);
+                      setView("candidate");
+                    }
+                  }}
+                  showSidebarPadding={false}
+                />
               )}
             </div>
           )}

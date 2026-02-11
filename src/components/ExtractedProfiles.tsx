@@ -8,11 +8,13 @@ interface Props {
   profiles: Profile[];
   excelFile?: string | null;
   setProfiles: React.Dispatch<React.SetStateAction<Profile[]>>;
+  onView?: (profile: Profile) => void;
+  showSidebarPadding?: boolean;
 }
 type Status = "New" | "Screening" | "Interview" | "Rejected" | "Hired";
 
 
-export default function ExtractedProfiles({ profiles, excelFile, setProfiles }: Props) {
+export default function ExtractedProfiles({ profiles, excelFile, setProfiles, onView, showSidebarPadding = true }: Props) {
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [viewMode, setViewMode] = useState<"card" | "table">("card");
   const [editMode, setEditMode] = useState(false);
@@ -62,8 +64,11 @@ export default function ExtractedProfiles({ profiles, excelFile, setProfiles }: 
   };
 
   return (
-    <div className="pl-64 min-h-screen bg-gray-50 overflow-x-hidden">
-      <div className="flex items-center justify-end gap-3 max-w-7xl px-6 pt-6">
+    <div className={`${showSidebarPadding ? "pl-64 min-h-screen" : ""} bg-gray-50 overflow-x-hidden w-full`}>
+      <div className="flex items-center justify-between gap-3 max-w-7xl px-3 pt-3">
+        <p className="text-[0.80rem] text-gray-600 font-medium">
+          Manage candidates who have applied or <br></br> been added to this position
+        </p>
         <button
           onClick={() =>
             setViewMode(viewMode === "card" ? "table" : "card")
@@ -88,7 +93,7 @@ export default function ExtractedProfiles({ profiles, excelFile, setProfiles }: 
 
       {/* 🔹 Profile List (Refined Horizontal View) */}
       {viewMode === "card" && (
-        <div className="max-w-7xl mx-auto px-6 py-6 space-y-4">
+        <div className="max-w-7xl mx-auto px-3 py-3 space-y-4">
 
           {profiles.map((p, i) => {
             const skillsArr = getSkillsArray(p.skills);
@@ -109,12 +114,21 @@ export default function ExtractedProfiles({ profiles, excelFile, setProfiles }: 
                       <span className="text-lg font-bold">{p.name ? p.name.charAt(0).toUpperCase() : <FileText />}</span>
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h3 className="text-base font-bold text-gray-900 truncate group-hover:text-blue-600 transition-colors" title={p.name || p.file_name}>
-                        {p.name || p.file_name || "Unknown"}
-                      </h3>
-                      <p className="text-xs text-gray-500 mt-0.5 truncate max-w-[150px]" title={`${p.current_designation || ""} @ ${p.current_company || ""}`}>
-                        {p.current_designation || "No Role"}
-                      </p>
+                      <div>
+                        <h3 className="text-base font-bold text-gray-900 truncate group-hover:text-blue-600 transition-colors" title={p.name || p.file_name}>
+                          {p.name || p.file_name || "Unknown"}
+                        </h3>
+                        <p className="text-xs text-gray-500 mt-0.5 truncate max-w-[150px]" title={`${p.current_designation || ""} @ ${p.current_company || ""}`}>
+                          {p.current_designation || "No Role"}
+                        </p>
+                      </div>
+                      {/* Match Score */}
+                      {p.match_score && (
+                        <div className="flex items-center w-max gap-2 bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-lg border border-emerald-100 mt-1.5">
+                          <span className="text-[9px] font-bold uppercase">Match</span>
+                          <span className="text-sm font-black">{p.match_score}%</span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -158,22 +172,21 @@ export default function ExtractedProfiles({ profiles, excelFile, setProfiles }: 
                   {/* 3. Right: Score & Actions (Fixed Side Panel) */}
                   <div className="flex xl:flex-col items-center xl:items-end gap-3 w-full xl:w-auto shrink-0 justify-between xl:justify-start">
 
-                    {/* Match Score */}
-                    {p.match_score && (
-                      <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 px-3 py-1 rounded-lg border border-emerald-100">
-                        <span className="text-[10px] font-bold uppercase">Match</span>
-                        <span className="text-sm font-black">{p.match_score}%</span>
-                      </div>
-                    )}
+
 
                     {/* Buttons */}
                     <div className="flex gap-2">
                       <button
                         // onClick={() => setSelectedProfile(p)}
                         onClick={() => {
-                          setSelectedProfile(p);
-                          setStatusValue(p.status || "New");
-                          setEditMode(false);
+                          const hasAnalysis = !!(p.match_score || p.gap_summary);
+                          if (onView && hasAnalysis) {
+                            onView(p);
+                          } else {
+                            setSelectedProfile(p);
+                            setStatusValue(p.status || "New");
+                            setEditMode(false);
+                          }
                         }}
 
                         className="px-3 py-1.5 text-xs font-medium bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition"
@@ -182,10 +195,20 @@ export default function ExtractedProfiles({ profiles, excelFile, setProfiles }: 
                       </button>
                       <button
                         // onClick={() => setSelectedProfile(p)}
+                        // onClick={() => {
+                        //   setSelectedProfile(p);
+                        //   setStatusValue(p.status || "New");
+                        //   setEditMode(true);
+                        // }}
                         onClick={() => {
-                          setSelectedProfile(p);
-                          setStatusValue(p.status || "New");
-                          setEditMode(true);
+                          const hasAnalysis = !!(p.match_score || p.gap_summary);
+                          if (onView && hasAnalysis) {
+                            onView(p);
+                          } else {
+                            setSelectedProfile(p);
+                            setStatusValue(p.status || "New");
+                            setEditMode(true);
+                          }
                         }}
 
                         className="px-3 py-1.5 text-xs font-medium flex items-center justify-center rounded-lg bg-gray-50 text-gray-500 hover:bg-gray-100 hover:text-gray-900 transition border border-gray-200"
@@ -224,7 +247,7 @@ export default function ExtractedProfiles({ profiles, excelFile, setProfiles }: 
         </div>
       )}
       {viewMode === "table" && (
-        <div className="w-full px-6 py-6">
+        <div className="w-full px-3 py-3">
           <div className="w-full overflow-hidden bg-white rounded-lg shadow ring-1 ring-gray-200">
             <table className="w-full table-fixed">
               <thead>
@@ -262,6 +285,11 @@ export default function ExtractedProfiles({ profiles, excelFile, setProfiles }: 
                       Skills
                     </div>
                   </th>
+                  {profiles.some(p => p.match_score) && (
+                    <th className="w-[10%] px-3 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Match Score
+                    </th>
+                  )}
                   <th className="w-[10%] px-3 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     Status
                   </th>
@@ -301,6 +329,8 @@ export default function ExtractedProfiles({ profiles, excelFile, setProfiles }: 
                       <td className="px-3 py-3">
                         <span className="text-xs text-gray-600 font-medium block">{p.total_experience || "-"}</span>
                       </td>
+
+
                       <td className="px-3 py-3">
                         <div className="flex flex-wrap gap-1.5">
                           {preview.map((skill, idx) => (
@@ -327,6 +357,17 @@ export default function ExtractedProfiles({ profiles, excelFile, setProfiles }: 
                           )}
                         </div>
                       </td>
+                      {profiles.some(p => p.match_score) && (
+                        <td className="px-3 py-3 text-center">
+                          {p.match_score ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700">
+                              {p.match_score}%
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 text-xs">-</span>
+                          )}
+                        </td>
+                      )}
                       <td className="px-3 py-3 text-center">
                         <span
                           className={`text-[10px] px-2 py-1 rounded-full font-semibold
@@ -350,9 +391,14 @@ export default function ExtractedProfiles({ profiles, excelFile, setProfiles }: 
                           <button
                             // onClick={() => setSelectedProfile(p)}
                             onClick={() => {
-                              setSelectedProfile(p);
-                              setStatusValue(p.status || "New");
-                              setEditMode(false);
+                              const hasAnalysis = !!(p.match_score || p.gap_summary);
+                              if (onView && hasAnalysis) {
+                                onView(p);
+                              } else {
+                                setSelectedProfile(p);
+                                setStatusValue(p.status || "New");
+                                setEditMode(false);
+                              }
                             }}
 
                             className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
@@ -362,10 +408,20 @@ export default function ExtractedProfiles({ profiles, excelFile, setProfiles }: 
                           </button>
                           <button
                             // onClick={() => setSelectedProfile(p)}
+                            // onClick={() => {
+                            //   setSelectedProfile(p);
+                            //   setStatusValue(p.status || "New");
+                            //   setEditMode(true);
+                            // }}
                             onClick={() => {
-                              setSelectedProfile(p);
-                              setStatusValue(p.status || "New");
-                              setEditMode(true);
+                              const hasAnalysis = !!(p.match_score || p.gap_summary);
+                              if (onView && hasAnalysis) {
+                                onView(p);
+                              } else {
+                                setSelectedProfile(p);
+                                setStatusValue(p.status || "New");
+                                setEditMode(true);
+                              }
                             }}
 
                             className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
@@ -457,7 +513,7 @@ export default function ExtractedProfiles({ profiles, excelFile, setProfiles }: 
                     <p className="text-slate-900"> {selectedProfile.total_experience}</p>
                   </div>
                 </div>
-            
+
                 <div className="pt-4">
                   <h3 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600 mb-4 border-l-4 border-blue-500 pl-4">Skills</h3>
                   <div className="flex flex-wrap gap-2 mt-2">
@@ -483,13 +539,13 @@ export default function ExtractedProfiles({ profiles, excelFile, setProfiles }: 
                     </div>
                   </div>
                 </div>
-                  {editMode && (
+                {editMode && (
                   <div className="pt-5">
                     <h2 className="text-lg font-bold text-slate-800 mb-2">Update Status</h2>
 
                     <select
                       value={statusValue}
-                     onChange={(e) => setStatusValue(e.target.value as Status)}
+                      onChange={(e) => setStatusValue(e.target.value as Status)}
                       className="w-full p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                     >
                       <option>New</option>

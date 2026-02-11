@@ -1,117 +1,61 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useState } from "react";
 import type { ReactNode } from "react";
-import type { User } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
-
-interface Profile {
-  id: string;
-  email: string;
-  full_name: string | null;
-  role: string;
-}
-
+import { checkTenant, validateLogin } from "../lib/api";
+import { useNavigate } from "react-router-dom";
 interface AuthContextType {
-  user: User | null;
-  profile: Profile | null;
+  user: any;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, fullName: string) => Promise<void>;
-  signOut: () => Promise<void>;
+  login: (accountId: string, email: string, password: string) => Promise<void>;
+  logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<any>(() => {
+    const savedUser = localStorage.getItem("user");
+    return savedUser ? JSON.parse(savedUser) : null;
+  });
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        loadProfile(session.user.id);
-      } else {
-        setLoading(false);
-      }
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      (async () => {
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          await loadProfile(session.user.id);
-        } else {
-          setProfile(null);
-          setLoading(false);
-        }
-      })();
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const loadProfile = async (userId: string) => {
+  const login = async (accountId: string, email: string, password: string) => {
+    setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
+      // 🔹 STEP 1: Check tenant
+      const tenantToken = await checkTenant(accountId);
 
-      if (error) throw error;
-      setProfile(data);
-    } catch (error) {
-      console.error('Error loading profile:', error);
+      // store tenant token
+      localStorage.setItem("tenant_token", tenantToken);
+
+      // 🔹 STEP 2: Validate login
+      const loginData = await validateLogin(tenantToken, email, password);
+
+      setUser(loginData.data);
+      localStorage.setItem("user", JSON.stringify(loginData.data));
     } finally {
       setLoading(false);
     }
   };
 
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (error) throw error;
-  };
+const logout = () => {
+  localStorage.removeItem("user");
+  localStorage.removeItem("tenant_token");
+  setUser(null);
 
-  const signUp = async (email: string, password: string, fullName: string) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
-    if (error) throw error;
+  navigate("/"); // or "/login"
+};
 
-    if (data.user) {
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-          id: data.user.id,
-          email,
-          full_name: fullName,
-          role: 'Admin',
-        });
-      if (profileError) throw profileError;
-    }
-  };
-
-  const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
-  };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
+  return ctx;
 }

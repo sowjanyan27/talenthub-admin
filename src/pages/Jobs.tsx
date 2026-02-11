@@ -279,7 +279,7 @@ import PostJobModal from '../components/PostJobModal';
 import JobDetails from '../components/JobDetails';
 
 import { useJobContext } from '../contexts/JobContext';
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence } from "framer-motion";
 
 /* ================= TYPES ================= */
 
@@ -301,7 +301,12 @@ interface JobWithApplications extends Job {
 
 /* ================= COMPONENT ================= */
 
-export default function Jobs() {
+
+interface JobsProps {
+  onExtracted?: (profiles: any[], excel?: string | null) => void;
+}
+
+export default function Jobs({ onExtracted }: JobsProps) {
   const { jobs: contextJobs, applications, deleteJob } = useJobContext();
 
   const [filteredJobs, setFilteredJobs] = useState<JobWithApplications[]>([]);
@@ -365,7 +370,7 @@ export default function Jobs() {
   /* ================= DETAILS ================= */
 
   if (selectedJob) {
-    return <JobDetails jobId={selectedJob} onBack={() => setSelectedJob(null)} />;
+    return <JobDetails jobId={selectedJob} onBack={() => setSelectedJob(null)} onExtracted={onExtracted} />;
   }
 
   /* ================= UI ================= */

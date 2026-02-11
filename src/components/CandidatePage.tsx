@@ -40,16 +40,30 @@ const parseAnalysis = (text: string): Analysis => {
 
   if (!text) return sections;
 
-  // Normalize newlines
-  const normalized = text.replace(/\r\n/g, "\n").trim();
+  console.log("🔍 Parsing Gap Analysis Text:", text);
+
+  // Normalize newlines and strip Markdown bold/italics/headers
+  const normalized = text
+    .replace(/\r\n/g, "\n")
+    .replace(/\*\*/g, "")   // Remove bold **
+    .replace(/##/g, "")     // Remove header ##
+    .trim();
 
   // Remove leading numbers like 1), 2), etc.
   const removeNumberPrefix = (str: string) => str.replace(/^\d+\)\s*/, "");
 
   // Helper to extract section content
+  // Regex looks for "SECTION NAME:" (case insensitive)
+  // Stops at next known section header or end of string
   const getSection = (name: string) => {
+    // Escape special chars in name just in case, though we use known strings
+    const safeName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    // Look for: Name, optional colon, content, until next section
+    // We explicitly list the known next sections to stop capturing
+    // "SUMMARY", "MATCHES", "GAPS", "CONCLUSION & RECOMMENDATIONS" (or just "CONCLUSION")
     const regex = new RegExp(
-      `${name}:([\\s\\S]*?)(?=SUMMARY:|MATCHES:|GAPS:|CONCLUSION & RECOMMENDATIONS:|$)`,
+      `${safeName}\\s*:?([\\s\\S]*?)(?=(?:SUMMARY|MATCHES|GAPS|CONCLUSION)|$)`,
       "i"
     );
     const match = normalized.match(regex);
@@ -72,6 +86,7 @@ const parseAnalysis = (text: string): Analysis => {
         } else if (/^[A-Z][a-zA-Z ]+:/.test(line)) {
           acc.push(line.trim());
         } else if (acc.length > 0) {
+          // Append mostly if it doesn't look like a new bullet header
           acc[acc.length - 1] += " " + line;
         } else {
           acc.push(line);
@@ -80,12 +95,18 @@ const parseAnalysis = (text: string): Analysis => {
       }, []);
 
   // Fill sections
+  // Note: We search for the normalized keywords we expect after markdown stripping
   sections.SUMMARY = removeNumberPrefix(getSection("SUMMARY"));
-  sections.CONCLUSION = removeNumberPrefix(
-    getSection("CONCLUSION & RECOMMENDATIONS")
-  );
+  // Sometimes it comes as "CONCLUSION" or "CONCLUSION & RECOMMENDATIONS"
+  // We'll try "CONCLUSION & RECOMMENDATIONS" first, if empty try "CONCLUSION"
+  let conclusion = getSection("CONCLUSION & RECOMMENDATIONS");
+  if (!conclusion) conclusion = getSection("CONCLUSION");
+  sections.CONCLUSION = removeNumberPrefix(conclusion);
+
   sections.MATCHES = parseBullets(getSection("MATCHES"));
   sections.GAPS = parseBullets(getSection("GAPS"));
+
+  console.log("✅ Parsed Sections:", sections);
 
   return sections;
 };
@@ -125,17 +146,21 @@ const getStatusIcon = (event: any) => {
   return null;
 };
 
-export default function CandidatePage({ application, onBack }: any) {
+type Status = "New" | "Screening" | "Interview" | "Rejected" | "Hired";
+
+export default function CandidatePage({ application, onBack, onUpdateStatus }: any) {
   const candidate = application.candidate;
 
   const events = application.timeline || mockTimeline[application.id] || [];
   const [selectedEvent, setSelectedEvent] = useState(events.length > 0 ? events[0] : null);
+  const [editMode, setEditMode] = useState(false);
+  const [statusValue, setStatusValue] = useState<Status>(application.status || "New");
+
   const analysis = parseAnalysis(candidate.gap_summary);
   return (
     <div className="ml-64 min-h-screen flex-1 bg-gray-50">
       <div className='flex gap-2'>
-        {/* LEFT – TIMELINE */}
-        <div className="w-1/4 bg-white min-h-screen border-r p-4 overflow-y-auto">
+        {/* <div className="w-1/4 bg-white min-h-screen border-r p-4 overflow-y-auto">
           <button
             onClick={onBack}
             className="flex items-center text-sm text-gray-600 mb-4"
@@ -149,13 +174,13 @@ export default function CandidatePage({ application, onBack }: any) {
           {events.map((event: any) => (
             <div
               key={event.id}
-              onClick={() => setSelectedEvent(event)}   // ✅ CLICK HERE
+              onClick={() => setSelectedEvent(event)}   
               className={`w-full text-left p-4 rounded-xl transition-all duration-200 relative ${selectedEvent.id === event.id
                 ? 'bg-blue-50 border-2 border-blue-500'
                 : 'hover:bg-gray-50 border-2 border-transparent'
                 }`}
             >
-              {/* <p className="font-medium text-sm">{event.title}</p> */}
+               <p className="font-medium text-sm">{event.title}</p> 
               <div className="flex items-start gap-3">
                 {getStatusIcon(event)}
                 <div className="flex-1 min-w-0">
@@ -167,14 +192,62 @@ export default function CandidatePage({ application, onBack }: any) {
                 </div>
               </div>
 
-              {/* <p className="text-xs text-gray-500">{event.summary}</p>
-              <p className="text-xs text-gray-400 mt-1">{event.date}</p> */}
+              <p className="text-xs text-gray-500">{event.summary}</p>
+              <p className="text-xs text-gray-400 mt-1">{event.date}</p>
             </div>
           ))}
-        </div>
+        </div> */}
 
         {/* RIGHT – DETAILS */}
-        <div className="w-2/3 p-6 overflow-y-auto">
+        <div className="w-7xl p-6 overflow-y-auto">
+          <button
+            onClick={onBack}
+            className="flex items-center text-sm text-gray-600 mb-4"
+          >
+            <ArrowLeft className="w-4 h-4 mr-1" />
+            Back to candidates
+          </button>
+
+          {/* ADDED: Action Buttons (Edit Status) */}
+          <div className="flex justify-end gap-3 mb-4">
+            <button
+              onClick={() => setEditMode(!editMode)}
+              className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-all font-medium shadow-sm flex items-center gap-2"
+            >
+              <CheckCircle className={`w-4 h-4 ${editMode ? 'text-blue-500' : 'text-gray-400'}`} />
+              {editMode ? 'Cancel Edit' : 'Edit Status'}
+            </button>
+          </div>
+
+          {/* ADDED: Status Update Card in Edit Mode */}
+          {editMode && (
+            <div className="bg-white rounded-2xl p-6 shadow-md border border-blue-100 mb-6 animate-in slide-in-from-top duration-300">
+              <h3 className="text-lg font-bold text-slate-800 mb-4">Update Candidate Status</h3>
+              <div className="max-w-xs">
+                <select
+                  value={statusValue}
+                  onChange={(e) => setStatusValue(e.target.value as Status)}
+                  className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50 font-medium"
+                >
+                  <option value="New">New</option>
+                  <option value="Screening">Screening</option>
+                  <option value="Interview">Interview</option>
+                  <option value="Hired">Hired</option>
+                  <option value="Rejected">Rejected</option>
+                </select>
+
+                <button
+                  onClick={() => {
+                    onUpdateStatus(statusValue);
+                    setEditMode(false);
+                  }}
+                  className="mt-4 w-full py-3 bg-[linear-gradient(to_right,#3B82F6,#2563EB)] text-white rounded-xl font-bold hover:shadow-lg transition-all"
+                >
+                  Save Status Change
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* PROFILE HEADER */}
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 backdrop-blur-sm mb-4">
@@ -309,13 +382,13 @@ export default function CandidatePage({ application, onBack }: any) {
 
 
           {/* EVENT DETAILS */}
-          {selectedEvent ? (
+          {/* {selectedEvent ? (
             <EventRenderer event={selectedEvent} />
           ) : (
             <div className="flex flex-col items-center justify-center bg-white rounded-2xl p-10 shadow-sm border border-gray-100 h-64">
               <p className="text-gray-500">No timeline events details available</p>
             </div>
-          )}
+          )} */}
         </div>
       </div>
     </div>

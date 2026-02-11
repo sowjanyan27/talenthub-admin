@@ -1,8 +1,9 @@
 
 import { useState, useRef, useEffect } from "react";
-import { X, FileText, Briefcase } from "lucide-react";
+import { X, FileText, Briefcase, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { apiQueue } from "../utils/requestQueue";
+import { motion, AnimatePresence } from "framer-motion";
 
 
 async function fetchWithRetry(
@@ -153,7 +154,7 @@ export default function UploadResumeModal({
           enable_gap_analysis: !!jobDescription,
           job_description: jobDescription,
         };
-        console.log(payload,'payload')
+        console.log(payload, 'payload')
 
         const res = await fetchWithRetry(url, {
           method: "POST",
@@ -162,7 +163,7 @@ export default function UploadResumeModal({
         });
 
         const data = await res.json();
-        console.log(data,'++++++++++response data+++++++++++')
+        console.log(data, '++++++++++response data+++++++++++')
 
         if (!res.ok || !data.success) {
           setFileStatus({ [folderName]: "error" });
@@ -268,7 +269,34 @@ export default function UploadResumeModal({
   /* ================= UI ================= */
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl w-full max-w-lg shadow-lg">
+      <div className="bg-white rounded-xl w-full max-w-lg shadow-lg relative overflow-hidden">
+        <AnimatePresence>
+          {loading && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 z-[60] bg-white/80 backdrop-blur-[2px] flex flex-col items-center justify-center p-6 text-center"
+            >
+              <div className="relative">
+                <div className="w-16 h-16 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin" />
+                <Loader2 className="w-8 h-8 text-blue-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
+              </div>
+              <h3 className="mt-4 text-lg font-bold text-gray-900">Processing Resumes</h3>
+              <p className="text-sm text-gray-500 mt-1">Please wait while we extract data and analyze profiles...</p>
+
+              <div className="mt-6 w-full max-w-[240px] bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                <motion.div
+                  className="h-full bg-blue-600"
+                  initial={{ width: "0%" }}
+                  animate={{ width: "100%" }}
+                  transition={{ duration: 15, ease: "linear" }}
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <div className="flex justify-between items-center px-6 py-4 border-b">
           <div>
             <h2 className="text-lg font-semibold">Upload Resumes</h2>
@@ -338,9 +366,14 @@ export default function UploadResumeModal({
           <button
             onClick={handleUpload}
             disabled={loading}
-            className="bg-blue-600 text-white px-4 py-2 rounded"
+            className="bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2"
           >
-            {loading ? "Uploading..." : "Upload"}
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Processing...
+              </>
+            ) : "Upload"}
           </button>
         </div>
       </div>

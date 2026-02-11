@@ -10,22 +10,31 @@ import { motion, AnimatePresence } from "framer-motion"
 interface SidebarProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
-  onOpenKeyExtraction: () => void;   // ✅ ADD THIS
+  onOpenKeyExtraction: () => void;
+  onOpenPostJob: () => void;
 }
 
-export default function Sidebar({ activeTab, onTabChange, onOpenKeyExtraction,   // ✅ HERE
+export default function Sidebar({ activeTab, onTabChange, onOpenKeyExtraction, onOpenPostJob,
 }: SidebarProps) {
-  const { profile, signOut } = useAuth();
   const [open, setOpen] = useState(false)
+  const [userData, setUserData] = useState<any>(null);
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    // { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'jobs', label: 'Jobs', icon: Briefcase },
     // { id: 'candidates', label: 'Candidates', icon: Users },
     // { id: 'interviews', label: 'Interviews', icon: Calendar },
-    { id: 'roles', label: 'Roles & Permissions', icon: Shield },
+    // { id: 'roles', label: 'Roles & Permissions', icon: Shield },
   ];
+
+  const { logout } = useAuth();
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      setUserData(JSON.parse(storedUser));
+    }
+  }, []);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -84,7 +93,7 @@ export default function Sidebar({ activeTab, onTabChange, onOpenKeyExtraction,  
                   <li
                     onClick={() => {
                       setOpen(false);        // close dropdown
-                      onTabChange('jobs');   // 👈 GO TO JOBS PAGE
+                      onOpenPostJob();      // open post job modal
                     }}
                     className="px-5 py-3 text-[0.98rem] hover:bg-[linear-gradient(to_right,#f8fafc,#eef2f7,#e5eaf1)] rounded-xl cursor-pointer transition-colors"
                   >
@@ -106,8 +115,8 @@ export default function Sidebar({ activeTab, onTabChange, onOpenKeyExtraction,  
               key={item.id}
               onClick={() => onTabChange(item.id)}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200  ${isActive
-                  ? 'bg-[linear-gradient(to_bottom_right,#3B82F6,#2563EB)] text-white shadow-lg shadow-blue-500/30'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                ? 'bg-[linear-gradient(to_bottom_right,#3B82F6,#2563EB)] text-white shadow-lg shadow-blue-500/30'
+                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }`}
             >
               <Icon className="w-5 h-5" />
@@ -128,13 +137,14 @@ export default function Sidebar({ activeTab, onTabChange, onOpenKeyExtraction,  
               />
             </div>
 
-            <div>
-              <h6 className="font-semibold text-gray-900 capitalize">{profile?.full_name || 'User'}</h6>
-              {/* <p className='text-sm'>{profile?.email}</p> */}
-              <small>{profile?.role}</small>
-            </div>
+            <h6 className="font-semibold text-gray-900 capitalize">
+              {userData?.full_name || userData?.name || "User"}
+            </h6>
+
+            <small>{userData?.user_role || "Admin"}</small>
+
           </div>
-          <button onClick={signOut} className="p-2 rounded-md hover:bg-red-50 transition group">
+          <button onClick={logout} className="p-2 rounded-md hover:bg-red-50 transition group">
             <LogOut className="w-5 h-5 text-gray-700 group-hover:text-red-600" />
           </button>
         </div>
